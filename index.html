@@ -259,7 +259,7 @@ function makeDemo(){
     async init(){ const id=ls.get("yp4t-demo-me"); const saved=ls.get("yp4t-demo-profile"); if(id&&saved){ try{ const p=JSON.parse(saved); db.members.push(p); db.me=p.id; }catch(e){} } },
     async session(){ return db.me ? {user:{id:db.me,email:ls.get("yp4t-demo-email")||"you@example.com"}} : (ls.get("yp4t-demo-email")?{user:{id:"demo-you",email:ls.get("yp4t-demo-email")}}:null); },
     async sendCode(email){ ls.set("yp4t-demo-pending", email); },
-    async verifyCode(email, code){ if(!/^\d{6}$/.test(code)) throw new Error("Enter the 6-digit code."); ls.set("yp4t-demo-email", email); },
+    async verifyCode(email, code){ if(!/^\d{6,10}$/.test(code)) throw new Error("Enter the code from your email."); ls.set("yp4t-demo-email", email); },
     async signOut(){ ["yp4t-demo-email","yp4t-demo-me","yp4t-demo-profile"].forEach(k=>ls.del(k)); db.members=db.members.filter(m=>m.id!=="demo-you"); db.me=null; },
     async getMyProfile(){ const m=me(); return m ? {...m, phone:m._phone||"", email:ls.get("yp4t-demo-email")} : null; },
     async saveProfile(p){ let m=me(); const isNew=!m;
@@ -397,7 +397,9 @@ function onLive(ev){
 function renderTop(){
   const m=S.me, box=$("#meBox"), tabs=$("#tabs");
   if(S.session){ box.innerHTML = `${m?avatar(m.photo_url,m.full_name):""}<button class="btn ghost sm" id="outBtn">Sign out</button>`; $("#outBtn").onclick=async()=>{ await api.signOut(); S.me=null; S.tab="map"; refreshAuth(); }; }
-  else box.innerHTML = `<button class="btn sm" id="topJoin">Join</button>`, $("#topJoin").onclick=()=>$("#email")?.focus();
+  else { box.innerHTML = `<button class="btn ghost sm" id="topSignIn">Sign in</button><button class="btn sm" id="topJoin">Join</button>`;
+    $("#topJoin").onclick=()=>{ if(!$("#authBox")) renderLanding(); renderAuthBox("email","","join"); $("#authBox")?.scrollIntoView({behavior:"smooth",block:"center"}); $("#email")?.focus(); };
+    $("#topSignIn").onclick=()=>{ if(!$("#authBox")) renderLanding(); renderAuthBox("email","","signin"); $("#authBox")?.scrollIntoView({behavior:"smooth",block:"center"}); $("#email")?.focus(); }; }
   const show = m && m.status==="approved";
   tabs.hidden = !show;
   if(show){ tabs.innerHTML = TABS.filter(([k])=>k!=="admin"||isManager(m)).map(([k,l])=>`<button class="tab" role="tab" data-tab="${k}" aria-selected="${S.tab===k}">${l}</button>`).join("");
@@ -436,24 +438,30 @@ async function renderLanding(){
   try{ const L=await api.leaders(); if(L.length) $("#leadersBox").innerHTML=`<div class="eyebrow" style="margin:10px 0 8px">Our coordinators</div><div class="leaders">${L.map(l=>`<div class="leader">${avatar(l.photo_url,l.full_name,"lg")}<div><b>${esc(l.full_name)}</b><div class="small muted">${ROLE_LABEL[l.role]}${l.role==="state"?" · "+esc(l.state):""}</div></div></div>`).join("")}</div>`; }catch(e){}
 }
 async function updateLandingCount(){ const el=$("#landCount"); if(!el) return; try{ el.textContent=fmt(await api.publicTotal()); }catch(e){ el.textContent="—"; } }
-function renderAuthBox(step, email=""){
+function renderAuthBox(step, email="", mode){
   const box=$("#authBox"); if(!box) return;
+  mode = mode || renderAuthBox.mode || "join"; renderAuthBox.mode = mode;
+  const signin = mode==="signin";
   if(step==="email"){
-    box.innerHTML = `<h2>Join YP4T</h2><p class="muted">Enter your email. We'll send you a 6-digit code to sign in. No password needed.</p>
+    box.innerHTML = `<div class="seg" role="group" aria-label="Join or sign in"><button type="button" id="mJoin" aria-pressed="${!signin}">New member</button><button type="button" id="mIn" aria-pressed="${signin}">Sign in</button></div>
+    <h2>${signin?"Welcome back":"Join YP4T"}</h2><p class="muted">${signin?"Enter the email you joined with. We'll send you a sign-in code. No password needed.":"Enter your email. We'll send you a sign-in code. No password needed."}</p>
     <form id="emailForm" class="stack"><label for="email">Email address<input type="email" id="email" required autocomplete="email" placeholder="you@example.com" value="${esc(email)}"></label>
-    <button class="btn" type="submit">Send my code</button><div class="err" id="authErr"></div></form>
-    <p class="small muted">Already a member? Use the same email to sign back in.</p>`;
+    <button class="btn" type="submit">${signin?"Send my sign-in code":"Send my code"}</button><div class="err" id="authErr"></div></form>
+    <p class="small muted">${signin?"Not a member yet? Tap <b>New member</b> above.":"Already a member? Tap <b>Sign in</b> above."}</p>`;
+    $("#mJoin").onclick=()=>renderAuthBox("email",$("#email").value,"join");
+    $("#mIn").onclick=()=>renderAuthBox("email",$("#email").value,"signin");
     $("#emailForm").onsubmit = async e=>{ e.preventDefault(); const em=$("#email").value.trim(); const b=e.submitter; b.disabled=true;
-      try{ await api.sendCode(em); renderAuthBox("code", em); }catch(err){ $("#authErr").textContent=err.message; b.disabled=false; } };
+      try{ await api.sendCode(em); renderAuthBox("code", em); }catch(err){ $("#authErr").textContent=/rate|seconds|too many/i.test(err.message)?"Please wait a minute before asking for another code.":err.message; b.disabled=false; } };
   } else {
-    box.innerHTML = `<h2>Check your email</h2><p class="muted">We sent a 6-digit code to <b>${esc(email)}</b>. It can take a minute; check your spam folder too.</p>
-    ${LIVE?"":`<p class="pill w">Demo: type any 6 digits</p>`}
-    <form id="codeForm" class="stack"><label for="code">6-digit code<input type="text" id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required placeholder="123456" style="font-family:var(--mono);font-size:22px;letter-spacing:.3em"></label>
+    box.innerHTML = `<h2>Check your email</h2><p class="muted">We sent an email to <b>${esc(email)}</b>. Tap the <b>sign-in link</b> in it, or type the code here. It can take a minute; check your spam folder too.</p>
+    ${LIVE?"":`<p class="pill w">Demo: type any 6 to 8 digits</p>`}
+    <form id="codeForm" class="stack"><label for="code">Code from your email<input type="text" id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="10" required placeholder="12345678" style="font-family:var(--mono);font-size:22px;letter-spacing:.2em"></label>
     <button class="btn" type="submit">Sign in</button><div class="err" id="authErr"></div></form>
-    <button class="btn ghost sm" id="backBtn">Use a different email</button>`;
+    <div class="row"><button class="btn ghost sm" id="backBtn">Use a different email</button><button class="btn ghost sm" id="resendBtn">Send a new code</button></div>`;
     $("#backBtn").onclick=()=>renderAuthBox("email", email);
-    $("#codeForm").onsubmit = async e=>{ e.preventDefault(); const b=e.submitter; b.disabled=true;
-      try{ await api.verifyCode(email, $("#code").value.trim()); await refreshAuth(); }catch(err){ $("#authErr").textContent=err.message.includes("expired")||err.message.includes("invalid")?"That code is wrong or has expired. Request a new one.":err.message; b.disabled=false; } };
+    $("#resendBtn").onclick=async e=>{ const b=e.currentTarget; b.disabled=true; try{ await api.sendCode(email); toast("New code sent"); }catch(err){ $("#authErr").textContent=/rate|seconds|too many/i.test(err.message)?"Please wait a minute before asking for another code.":err.message; } setTimeout(()=>b.disabled=false, 30000); };
+    $("#codeForm").onsubmit = async e=>{ e.preventDefault(); const b=e.submitter; b.disabled=true; const code=$("#code").value.replace(/\D/g,"");
+      try{ await api.verifyCode(email, code); await refreshAuth(); }catch(err){ $("#authErr").textContent=/expired|invalid|token/i.test(err.message)?"That code is wrong or has expired. Tap Send a new code.":err.message; b.disabled=false; } };
     $("#code").focus();
   }
 }
