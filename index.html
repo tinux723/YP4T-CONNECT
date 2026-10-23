@@ -1,0 +1,804 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#2E9B53">
+<link rel="icon" href="logo.png">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}img{max-width:100%}</style>
+<title>YP4T Connect</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Young Professionals for Tinubu — join, get your membership card, find your ward team and join the door-to-door campaign.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: a campaign field app — live tile map of Nigeria as home, sticky tab bar, one column on phones */
+:root{
+  --paper:#F5F7F2; --card:#FFFFFF; --ink:#1B2140; --muted:#5B6377; --line:#DCE2D8;
+  --green:#2E9B53; --green-ink:#FFFFFF; --red:#DF3F3B; --sky:#45B5DF; --tile0:#E4EAE0; --soft:#EDF3EA;
+  --warn:#B7791F; --warn-bg:#FFF6E3;
+  --display:"Big Shoulders Display","Arial Narrow",Impact,sans-serif;
+  --body:"Figtree","Segoe UI",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#0E1320; --card:#161C2B; --ink:#E8ECF4; --muted:#9AA3B6; --line:#283146;
+  --green:#3DB466; --green-ink:#08130C; --red:#F0605B; --sky:#5CC4EA; --tile0:#1D2536; --soft:#18223A;
+  --warn:#E7B04F; --warn-bg:#2A2414; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#0E1320; --card:#161C2B; --ink:#E8ECF4; --muted:#9AA3B6; --line:#283146;
+  --green:#3DB466; --green-ink:#08130C; --red:#F0605B; --sky:#5CC4EA; --tile0:#1D2536; --soft:#18223A;
+  --warn:#E7B04F; --warn-bg:#2A2414; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5;margin:0}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--card)}
+.wrap{max-width:1080px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{font-family:var(--display);text-transform:uppercase;letter-spacing:.01em;line-height:1;margin:0;text-wrap:balance}
+h2{font-size:30px}h3{font-size:22px}
+p{margin:0}
+a{color:var(--green)}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--sky);outline-offset:2px}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.num{font-variant-numeric:tabular-nums}
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:999px;padding:11px 20px;font-weight:700;cursor:pointer;background:var(--green);color:var(--green-ink);text-decoration:none;min-height:44px}
+.btn:hover{filter:brightness(1.06)}
+.btn.ghost{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--line)}
+.btn.red{background:var(--red);color:#fff}
+.btn.sm{padding:7px 14px;min-height:36px;font-size:14px;white-space:nowrap}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px}
+.stack{display:flex;flex-direction:column;gap:14px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;background:var(--soft);color:var(--ink)}
+.pill.g{background:color-mix(in oklab,var(--green) 18%,transparent);color:var(--green)}
+.pill.r{background:color-mix(in oklab,var(--red) 16%,transparent);color:var(--red)}
+.pill.w{background:var(--warn-bg);color:var(--warn)}
+label{font-weight:600;font-size:14px;display:flex;flex-direction:column;gap:6px}
+input[type=text],input[type=email],input[type=tel],input[type=url],input[type=datetime-local],select,textarea{width:100%;padding:11px 12px;border-radius:8px;border:1.5px solid var(--line);background:var(--paper);min-height:44px}
+textarea{resize:vertical;min-height:70px}
+.check{flex-direction:row;align-items:flex-start;gap:10px;font-weight:500}
+.check input{width:20px;height:20px;margin-top:2px;accent-color:var(--green);flex:none}
+.err{color:var(--red);font-size:14px;font-weight:600}
+.demo-bar{background:var(--warn-bg);color:var(--warn);font-size:13px;font-weight:600;padding-block:7px;text-align:center}
+
+/* Header + tabs */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--card);border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;align-items:center;gap:12px;padding-block:8px}
+.logo-plate{background:#fff;border-radius:8px;padding:3px 6px;display:flex;align-items:center}
+.logo-plate img{height:38px;width:auto;display:block}
+.brand{font-family:var(--display);font-size:22px;font-weight:800;text-transform:uppercase;line-height:1}
+.brand small{display:block;font-family:var(--body);font-size:11px;font-weight:600;letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
+.top .me{margin-left:auto;display:flex;align-items:center;gap:8px}
+.avatar{width:36px;height:36px;border-radius:50%;object-fit:cover;background:var(--soft);flex:none;display:grid;place-items:center;font-weight:800;font-size:14px;color:var(--muted);overflow:hidden}
+.avatar.lg{width:64px;height:64px;font-size:22px}
+.tabs{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;padding-bottom:0}
+.tabs::-webkit-scrollbar{display:none}
+.tab{border:0;background:none;padding:10px 12px;font-weight:700;color:var(--muted);border-bottom:3px solid transparent;white-space:nowrap;cursor:pointer}
+.tab[aria-selected=true]{color:var(--ink);border-bottom-color:var(--green)}
+.tab .dot{display:inline-block;min-width:18px;padding:0 5px;border-radius:9px;background:var(--red);color:#fff;font-size:11px;margin-left:4px}
+main{padding-block:20px 60px}
+
+/* Landing */
+.hero{display:grid;grid-template-columns:1.1fr .9fr;gap:28px;align-items:center;padding-block:28px 10px}
+.hero h1{font-size:clamp(44px,8vw,84px);font-weight:900}
+.hero h1 .r{color:var(--red)}.hero h1 .g{color:var(--green)}
+.counter{font-family:var(--display);font-weight:900;font-size:clamp(56px,11vw,104px);line-height:.9;color:var(--green)}
+.sunrise{height:8px;border-radius:4px;background:linear-gradient(90deg,var(--green) 0 34%,var(--sky) 34% 52%,var(--red) 52% 70%,var(--green) 70%)}
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.step{border-top:3px solid var(--green);padding-top:10px}
+.step:nth-child(2){border-color:var(--sky)}.step:nth-child(3){border-color:var(--red)}
+.leaders{display:flex;gap:14px;flex-wrap:wrap}
+.leader{display:flex;gap:10px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:10px 14px 10px 10px;min-width:0}
+
+/* Map */
+.mapbox{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:18px;align-items:start}
+.tiles{display:grid;grid-template-columns:repeat(8,1fr);gap:5px}
+.tile{aspect-ratio:1;border:0;border-radius:7px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:var(--display);font-weight:800;line-height:1;padding:2px;transition:transform .15s;max-width:100%}
+.tile b{font-size:clamp(13px,2.2vw,19px)}
+.tile span{font-family:var(--body);font-size:clamp(9px,1.4vw,12px);font-weight:700;opacity:.9;font-variant-numeric:tabular-nums}
+.tile:hover{transform:scale(1.06)}
+.tile.sel{outline:3px solid var(--red);outline-offset:1px}
+.tile.pulse{animation:pulse 1s ease-out}
+@keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in oklab,var(--red) 70%,transparent)}100%{box-shadow:0 0 0 14px transparent}}
+@media (prefers-reduced-motion:reduce){.tile,.tile.pulse{animation:none;transition:none}}
+.legend{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.legend i{width:80px;height:10px;border-radius:5px;background:linear-gradient(90deg,var(--tile0),var(--green))}
+.stats3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat{background:var(--soft);border-radius:8px;padding:10px}
+.stat b{display:block;font-family:var(--display);font-size:28px;font-weight:800;font-variant-numeric:tabular-nums}
+.bars{display:flex;flex-direction:column;gap:3px;max-height:360px;overflow:auto;padding-right:4px}
+.bar{display:grid;grid-template-columns:minmax(0,1fr) 54px;gap:8px;align-items:center;font-size:13px;border:0;background:none;text-align:left;padding:4px 6px;border-radius:6px;cursor:pointer}
+.bar:hover{background:var(--soft)}
+.bar .t{position:relative;z-index:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;padding:3px 6px}
+.bar .t i{position:absolute;inset:0 auto 0 0;background:color-mix(in oklab,var(--green) 22%,transparent);border-radius:4px;z-index:-1}
+.bar .n{text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+.feed{display:flex;flex-direction:column;gap:6px;font-size:14px}
+.feed div{display:flex;gap:8px;align-items:baseline}
+.feed time{color:var(--muted);font-size:12px;margin-left:auto;white-space:nowrap}
+
+/* Card */
+.cardwrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;align-items:start}
+#cardImg{width:100%;max-width:520px;border-radius:12px;box-shadow:0 12px 40px -18px rgba(0,0,0,.35);display:block;aspect-ratio:1;background:var(--soft)}
+
+/* Lists */
+.people{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+.person{display:flex;gap:10px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:10px;min-width:0}
+.person>div{min-width:0}
+.person .nm{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.person .sub{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.person .btn{margin-left:auto;flex:none}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:middle}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+.scroll{overflow-x:auto}
+
+/* Chat */
+.chat{display:flex;flex-direction:column;height:min(560px,70vh);border:1px solid var(--line);border-radius:var(--r);background:var(--card);overflow:hidden}
+.msgs{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px}
+.msg{display:flex;gap:8px;max-width:85%}
+.msg .bub{background:var(--soft);padding:8px 12px;border-radius:12px 12px 12px 4px;min-width:0;overflow-wrap:anywhere}
+.msg .who{font-size:12px;font-weight:700;color:var(--muted)}
+.msg.mine{align-self:flex-end;flex-direction:row-reverse}
+.msg.mine .bub{background:color-mix(in oklab,var(--green) 20%,var(--card));border-radius:12px 12px 4px 12px}
+.composer{display:flex;gap:8px;padding:10px;border-top:1px solid var(--line)}
+.composer input{flex:1;min-width:0}
+.outing{display:flex;gap:12px;align-items:center;padding:12px;border:1px solid var(--line);border-radius:var(--r);background:var(--card);flex-wrap:wrap}
+.outing .date{font-family:var(--display);font-weight:800;text-align:center;min-width:52px;line-height:1}
+.outing .date b{display:block;font-size:30px;color:var(--red)}
+
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:10px 18px;border-radius:999px;font-weight:600;z-index:20;max-width:calc(100% - 32px)}
+.empty{padding:22px;text-align:center;color:var(--muted);border:1.5px dashed var(--line);border-radius:var(--r)}
+.seg{display:inline-flex;background:var(--soft);border-radius:999px;padding:3px}
+.seg button{border:0;background:none;padding:6px 14px;border-radius:999px;font-weight:700;cursor:pointer;color:var(--muted)}
+.seg button[aria-pressed=true]{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+
+@media (max-width:760px){
+  .hero,.mapbox,.cardwrap{grid-template-columns:1fr}
+  .hero{padding-top:12px}
+  .tiles{gap:3px}.tile{border-radius:5px}
+  h2{font-size:26px}
+  .brand small{display:none}
+  .brand{font-size:18px}
+  .logo-plate img{height:32px}
+}
+</style>
+
+</head>
+<body>
+<div id="demoBar" class="demo-bar" hidden>DEMO PREVIEW · sample members, nothing is saved · the live version runs on your own database</div>
+<header class="top">
+  <div class="wrap">
+    <div class="logo-plate"><img src="logo.png" alt="YP4T logo"></div>
+    <div class="brand">YP4T Connect<small>Young Professionals for Tinubu</small></div>
+    <div class="me" id="meBox"></div>
+  </div>
+  <div class="wrap"><nav class="tabs" id="tabs" role="tablist" hidden></nav></div>
+</header>
+<main class="wrap" id="view"></main>
+<div class="toast" id="toast" hidden></div>
+
+<script src="config.js"></script>
+<script src="lgas.js"></script>
+<script>
+"use strict";
+/* ═════════════════════════ Static data ═════════════════════════ */
+const STATES = Object.keys(window.NG_LGAS).sort();
+// Tile map of Nigeria: [code, column, row]
+const TILES = {
+  "Sokoto":["SO",1,0],"Zamfara":["ZA",2,0],"Katsina":["KT",3,0],"Kano":["KN",4,0],"Jigawa":["JI",5,0],"Yobe":["YO",6,0],"Borno":["BO",7,0],
+  "Kebbi":["KE",1,1],"Niger":["NI",2,1],"Kaduna":["KD",3,1],"Bauchi":["BA",4,1],"Gombe":["GO",5,1],"Adamawa":["AD",6,1],
+  "Oyo":["OY",0,2],"Kwara":["KW",1,2],"FCT":["FC",2,2],"Nasarawa":["NA",3,2],"Plateau":["PL",4,2],"Taraba":["TA",5,2],
+  "Ogun":["OG",0,3],"Osun":["OS",1,3],"Ekiti":["EK",2,3],"Kogi":["KO",3,3],"Benue":["BE",4,3],
+  "Lagos":["LA",0,4],"Ondo":["ON",1,4],"Edo":["ED",2,4],"Enugu":["EN",3,4],"Ebonyi":["EB",4,4],"Cross River":["CR",5,4],
+  "Delta":["DE",1,5],"Anambra":["AN",2,5],"Imo":["IM",3,5],"Abia":["AB",4,5],"Akwa Ibom":["AK",5,5],
+  "Bayelsa":["BY",1,6],"Rivers":["RI",2,6]
+};
+const PROFESSIONS = ["Accountant","Architect","Banker","Civil Servant","Data Analyst","Doctor","Engineer","Entrepreneur","Journalist","Lawyer","Lecturer","Nurse","Pharmacist","Software Developer","Student","Surveyor","Teacher","Trader","Designer","Content Creator","Marketer","Farmer","Real Estate","Oil & Gas"];
+const ROLE_LABEL = {member:"Member",ward:"Ward Coordinator",lga:"LGA Coordinator",state:"State Coordinator",national:"National Coordinator",admin:"Super Admin"};
+const CFG = window.YP4T_CONFIG || {};
+const LIVE = !!(CFG.SUPABASE_URL && CFG.SUPABASE_ANON_KEY);
+
+/* ═════════════════════════ Small helpers ═════════════════════════ */
+const $ = (s, r=document) => r.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmt = n => Number(n||0).toLocaleString("en-NG");
+const first = n => String(n||"").trim().split(/\s+/)[0] || "";
+const shortName = n => { const p = String(n||"").trim().split(/\s+/); return p.length>1 ? `${p[0]} ${p[p.length-1][0]}.` : p[0]; };
+const initials = n => String(n||"?").trim().split(/\s+/).slice(0,2).map(x=>x[0]).join("").toUpperCase();
+const ago = t => { const s=(Date.now()-new Date(t))/1000; if(s<60) return "just now"; if(s<3600) return Math.floor(s/60)+"m ago"; if(s<86400) return Math.floor(s/3600)+"h ago"; return Math.floor(s/86400)+"d ago"; };
+const avatar = (url, name, cls="") => url ? `<img class="avatar ${cls}" src="${esc(url)}" alt="">` : `<span class="avatar ${cls}">${esc(initials(name))}</span>`;
+const isManager = m => m && m.status==="approved" && m.role!=="member";
+const wardRoom = m => `ward:${m.state}|${m.lga}|${m.ward}`;
+const dmRoom = (a,b) => "dm:" + [a,b].sort().join(":");
+const ls = { get(k){ try{return localStorage.getItem(k)}catch(e){return null} }, set(k,v){ try{localStorage.setItem(k,v)}catch(e){} }, del(k){ try{localStorage.removeItem(k)}catch(e){} } };
+function toast(msg){ const t=$("#toast"); t.textContent=msg; t.hidden=false; clearTimeout(toast._t); toast._t=setTimeout(()=>t.hidden=true,2600); }
+function titleCase(s){ return String(s||"").trim().replace(/\s+/g," ").replace(/\b\w/g,c=>c.toUpperCase()); }
+function memberNo(m){ const code=(TILES[m.state]||["NG"])[0]; return `YP4T-${code}-${String(m.ref_code||"").toUpperCase().slice(0,6)}`; }
+function inviteLink(m){ const u=new URL(location.href); u.search=""; u.hash=""; u.searchParams.set("ref", m.ref_code); return u.toString(); }
+async function copy(text){ try{ await navigator.clipboard.writeText(text); toast("Copied"); }catch(e){ toast("Press and hold the link to copy it"); } }
+
+/* ═════════════════════════ DEMO backend (sample data, in memory) ═════════════════════════ */
+function makeDemo(){
+  const FN=["Adebayo","Chiamaka","Musa","Aisha","Tunde","Ngozi","Ibrahim","Funke","Emeka","Zainab","Seun","Halima","Kelechi","Bola","Yusuf","Amaka","Femi","Hauwa","Chidi","Kemi","Sani","Ifeoma","Gbenga","Fatima","Obinna","Tolu","Abdullahi","Ada","Dayo","Maryam"];
+  const LN=["Okafor","Bello","Adeyemi","Mohammed","Eze","Ogunleye","Abubakar","Nwosu","Lawal","Okonkwo","Yusuf","Balogun","Danjuma","Afolabi","Umar","Obi","Salami","Garba","Ibe","Akande"];
+  const W={"Lagos":9,"Kaduna":7,"FCT":7,"Ekiti":6,"Nasarawa":5,"Oyo":4,"Kano":4,"Rivers":3,"Ogun":3,"Osun":2,"Ondo":2,"Kwara":2,"Plateau":2,"Niger":2,"Delta":2,"Edo":2,"Enugu":1.5,"Anambra":1.2,"Benue":1.3,"Katsina":1.5,"Bauchi":1.2};
+  const pool=[]; STATES.forEach(s=>{ const w=W[s]||0.6; for(let i=0;i<w*10;i++) pool.push(s); });
+  let seed=7; const rnd=()=>{ seed=(seed*16807)%2147483647; return seed/2147483647; };
+  const pick=a=>a[Math.floor(rnd()*a.length)];
+  const now=Date.now();
+  const mk=(i,ts)=>{ const st=pick(pool), lga=pick(window.NG_LGAS[st]); return {
+    id:"demo-"+i, full_name:pick(FN)+" "+pick(LN), profession:pick(PROFESSIONS), state:st, lga, ward:"Ward "+(1+Math.floor(rnd()*8)),
+    photo_url:null, has_pvc:rnd()<.78, canvass:rnd()<.34, listed:true, status:"approved", role:"member",
+    ref_code:Math.floor(rnd()*1e9).toString(36).padStart(6,"0").slice(0,8), referred_by:null, created_at:new Date(ts).toISOString() }; };
+  const db={ members:[], messages:[], outings:[], rsvps:[], projects:[], me:null, nextId:1 };
+  for(let i=0;i<2480;i++) db.members.push(mk(i, now - rnd()*60*86400e3));
+  db.members.forEach((m,i)=>{ if(i>40 && rnd()<.55) m.referred_by = db.members[Math.floor(rnd()*40)].id; });
+  for(let i=0;i<14;i++) db.members.push({...mk(5000+i, now-rnd()*86400e3), status:"pending", referred_by:null});
+  // Placeholder coordinators (replace with real people in the live app)
+  const nat=db.members[3]; nat.role="national"; nat.full_name="National Coordinator"; nat.profession="Add name and photo";
+  const ek=db.members.find(m=>m.state==="Ekiti"); ek.role="state"; ek.full_name="Ekiti State Coordinator"; ek.profession="Add name and photo";
+  let liveCb=null, n=9000;
+  setInterval(()=>{ const m=mk(n++, Date.now()); db.members.push(m); liveCb && liveCb({type:"join", member:m}); }, 7000);
+  const me=()=>db.members.find(m=>m.id===db.me);
+  const stats=()=>{ const out=[]; const map=new Map(); const wk=Date.now()-7*86400e3;
+    for(const m of db.members){ if(m.status!=="approved") continue; const k=m.state+"|"+m.lga+"|"+m.ward; let r=map.get(k); if(!r){ r={state:m.state,lga:m.lga,ward:m.ward,members:0,pvc:0,canvass:0,new_7d:0}; map.set(k,r); out.push(r); }
+      r.members++; if(m.has_pvc) r.pvc++; if(m.canvass) r.canvass++; if(new Date(m.created_at)>wk) r.new_7d++; }
+    return out; };
+  const manages=(u,m)=>u&&u.status==="approved"&&(["admin","national"].includes(u.role)||(u.role==="state"&&u.state===m.state)||(u.role==="lga"&&u.state===m.state&&u.lga===m.lga)||(u.role==="ward"&&u.state===m.state&&u.lga===m.lga&&u.ward.toLowerCase()===String(m.ward).toLowerCase()));
+  const roomCbs=new Map();
+  return {
+    mode:"demo",
+    async init(){ const id=ls.get("yp4t-demo-me"); const saved=ls.get("yp4t-demo-profile"); if(id&&saved){ try{ const p=JSON.parse(saved); db.members.push(p); db.me=p.id; }catch(e){} } },
+    async session(){ return db.me ? {user:{id:db.me,email:ls.get("yp4t-demo-email")||"you@example.com"}} : (ls.get("yp4t-demo-email")?{user:{id:"demo-you",email:ls.get("yp4t-demo-email")}}:null); },
+    async sendCode(email){ ls.set("yp4t-demo-pending", email); },
+    async verifyCode(email, code){ if(!/^\d{6}$/.test(code)) throw new Error("Enter the 6-digit code."); ls.set("yp4t-demo-email", email); },
+    async signOut(){ ["yp4t-demo-email","yp4t-demo-me","yp4t-demo-profile"].forEach(k=>ls.del(k)); db.members=db.members.filter(m=>m.id!=="demo-you"); db.me=null; },
+    async getMyProfile(){ const m=me(); return m ? {...m, phone:m._phone||"", email:ls.get("yp4t-demo-email")} : null; },
+    async saveProfile(p){ let m=me(); const isNew=!m;
+      if(isNew){ m={ id:"demo-you", status:"approved", role:"admin", ref_code:"demo"+Math.floor(Math.random()*9999), referred_by:null, created_at:new Date().toISOString() }; db.members.push(m); db.me=m.id; }
+      Object.assign(m,{full_name:p.full_name,profession:p.profession,state:p.state,lga:p.lga,ward:titleCase(p.ward),photo_url:p.photo_url??m.photo_url,has_pvc:p.has_pvc,canvass:p.canvass,listed:p.listed,_phone:p.phone});
+      ls.set("yp4t-demo-me", m.id); ls.set("yp4t-demo-profile", JSON.stringify({...m, photo_url: (m.photo_url||"").startsWith("data:") && m.photo_url.length>400000 ? null : m.photo_url}));
+      if(isNew) liveCb&&liveCb({type:"join",member:m}); return m; },
+    async uploadPhoto(blob){ return await new Promise(r=>{ const fr=new FileReader(); fr.onload=()=>r(fr.result); fr.readAsDataURL(blob); }); },
+    async publicTotal(){ return db.members.filter(m=>m.status==="approved").length; },
+    async stats(){ return stats(); },
+    async recentJoins(){ return db.members.filter(m=>m.status==="approved").sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,12).map(m=>({first_name:first(m.full_name),profession:m.profession,state:m.state,lga:m.lga,created_at:m.created_at})); },
+    onLive(cb){ liveCb=cb; },
+    async topRecruiters(){ const c=new Map(); db.members.forEach(m=>{ if(m.referred_by&&m.status==="approved") c.set(m.referred_by,(c.get(m.referred_by)||0)+1); });
+      return [...c].sort((a,b)=>b[1]-a[1]).slice(0,20).map(([id,n])=>{ const r=db.members.find(m=>m.id===id); return {member_id:id,first_name:first(r.full_name),state:r.state,lga:r.lga,recruits:n}; }); },
+    async myRecruits(){ return db.members.filter(m=>m.referred_by===db.me).length; },
+    async leaders(){ return db.members.filter(m=>["national","state"].includes(m.role)).map(m=>({id:m.id,full_name:m.full_name,role:m.role,state:m.state,photo_url:m.photo_url})); },
+    async areaCoordinators(state){ return db.members.filter(m=>m.status==="approved"&&m.role!=="member"&&m.role!=="admin"&&(m.role==="national"||m.state===state)); },
+    async directory({state,lga,q}){ const ql=(q||"").toLowerCase(); return db.members.filter(m=>m.status==="approved"&&m.listed&&m.id!==db.me&&(!state||m.state===state)&&(!lga||m.lga===lga)&&(!ql||(m.full_name+" "+m.profession+" "+m.lga).toLowerCase().includes(ql))).slice(0,60); },
+    async messages(room){ return db.messages.filter(x=>x.room===room).slice(-200); },
+    async send(room, body){ const u=me(); const msg={id:db.nextId++,room,sender:u.id,sender_name:u.full_name,sender_photo:u.photo_url,body,created_at:new Date().toISOString()}; db.messages.push(msg); (roomCbs.get(room)||[]).forEach(f=>f(msg)); },
+    subscribeRoom(room, cb){ roomCbs.set(room,[cb]); return ()=>roomCbs.delete(room); },
+    async dmPartners(){ const rooms=new Map(); db.messages.filter(x=>x.room.startsWith("dm:")&&x.room.includes(db.me)).forEach(x=>rooms.set(x.room,x));
+      return [...rooms.values()].reverse().map(x=>{ const pid=x.room.slice(3).split(":").find(i=>i!==db.me); const p=db.members.find(m=>m.id===pid); return {room:x.room,partner:pid,partner_name:p?.full_name,partner_photo:p?.photo_url,last_body:x.body,last_at:x.created_at}; }); },
+    async outings(m){ return db.outings.filter(o=>o.state===m.state&&o.lga===m.lga&&o.ward.toLowerCase()===m.ward.toLowerCase()).map(o=>({...o,outing_rsvps:db.rsvps.filter(r=>r.outing_id===o.id)})); },
+    async createOuting(o){ db.outings.push({...o,id:db.nextId++,created_by:db.me}); },
+    async rsvp(id,on){ db.rsvps=db.rsvps.filter(r=>!(r.outing_id===id&&r.member_id===db.me)); if(on) db.rsvps.push({outing_id:id,member_id:db.me}); },
+    async projects(state){ return db.projects.filter(p=>p.state===state); },
+    async addProject(p){ db.projects.push({...p,id:db.nextId++,created_at:new Date().toISOString()}); },
+    async deleteProject(id){ db.projects=db.projects.filter(p=>p.id!==id); },
+    async pending(){ const u=me(); return db.members.filter(m=>m.status==="pending"&&manages(u,m)).map(m=>({...m,member_private:{phone:"080"+String(m.id.length*1234567).slice(0,8),email:null}})); },
+    async setStatus(id,status){ const m=db.members.find(x=>x.id===id); if(m) m.status=status; },
+    async setRole(id,role){ const m=db.members.find(x=>x.id===id); if(m) m.role=role; },
+    async candidates(state){ const c=new Map(); db.members.forEach(m=>{ if(m.referred_by) c.set(m.referred_by,(c.get(m.referred_by)||0)+1); });
+      return db.members.filter(m=>m.status==="approved"&&m.state===state&&m.id!==db.me).map(m=>{ const recruits=c.get(m.id)||0; const outings=db.rsvps.filter(r=>r.member_id===m.id).length; const messages=db.messages.filter(x=>x.sender===m.id).length;
+        return {...m,recruits,outings,messages,score:recruits*5+(m.canvass?10:0)+outings*4+Math.min(messages,30)}; }).sort((a,b)=>b.score-a.score).slice(0,40); }
+  };
+}
+
+/* ═════════════════════════ LIVE backend (Supabase) ═════════════════════════ */
+function makeLive(){
+  let sb, uid=null; const roomCbs=new Map(); let liveCb=null;
+  const must = ({data,error}) => { if(error) throw new Error(error.message); return data; };
+  return {
+    mode:"live",
+    async init(){
+      await new Promise((res,rej)=>{ const s=document.createElement("script"); s.src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"; s.onload=res; s.onerror=()=>rej(new Error("Could not load the database library. Check your internet connection.")); document.head.appendChild(s); });
+      sb = window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY);
+      const {data} = await sb.auth.getSession(); uid = data.session?.user?.id || null;
+      sb.auth.onAuthStateChange((_e, s)=>{ uid = s?.user?.id || null; });
+      sb.channel("live-members").on("postgres_changes",{event:"*",schema:"public",table:"members"},()=>liveCb&&liveCb({type:"refresh"})).subscribe();
+      sb.channel("live-messages").on("postgres_changes",{event:"INSERT",schema:"public",table:"messages"},p=>{ (roomCbs.get(p.new.room)||[]).forEach(f=>f(p.new)); liveCb&&liveCb({type:"message",message:p.new}); }).subscribe();
+    },
+    async session(){ const {data}=await sb.auth.getSession(); uid=data.session?.user?.id||null; return data.session; },
+    async sendCode(email){ must(await sb.auth.signInWithOtp({email, options:{shouldCreateUser:true, emailRedirectTo:location.origin+location.pathname}})); },
+    async verifyCode(email, token){ const d=must(await sb.auth.verifyOtp({email, token, type:"email"})); uid=d.user?.id; },
+    async signOut(){ await sb.auth.signOut(); uid=null; },
+    async getMyProfile(){ if(!uid) return null; const m=must(await sb.from("members").select("*").eq("id",uid).maybeSingle()); if(!m) return null;
+      const p=must(await sb.from("member_private").select("phone,email").eq("id",uid).maybeSingle()); return {...m, phone:p?.phone||"", email:p?.email||""}; },
+    async saveProfile(p){ const row={id:uid,full_name:p.full_name,profession:p.profession,state:p.state,lga:p.lga,ward:p.ward,has_pvc:p.has_pvc,canvass:p.canvass,listed:p.listed};
+      if(p.photo_url) row.photo_url=p.photo_url;
+      const exists=must(await sb.from("members").select("id").eq("id",uid).maybeSingle());
+      if(exists) must(await sb.from("members").update(row).eq("id",uid));
+      else { row.invited_with = ls.get("yp4t-ref") || null; must(await sb.from("members").insert(row)); }
+      must(await sb.from("member_private").upsert({id:uid, phone:p.phone, email:p.email}));
+      return this.getMyProfile(); },
+    async uploadPhoto(blob){ const path=`${uid}/${Date.now().toString(36)}${Math.random().toString(36).slice(2,8)}.jpg`;
+      must(await sb.storage.from("photos").upload(path, blob, {contentType:"image/jpeg", upsert:false}));
+      return sb.storage.from("photos").getPublicUrl(path).data.publicUrl; },
+    async publicTotal(){ return must(await sb.rpc("public_total")); },
+    async stats(){ return must(await sb.rpc("area_stats")) || []; },
+    async recentJoins(){ return must(await sb.rpc("recent_joins")) || []; },
+    onLive(cb){ liveCb=cb; },
+    async topRecruiters(){ return must(await sb.rpc("top_recruiters")) || []; },
+    async myRecruits(){ const {count,error}=await sb.from("members").select("id",{count:"exact",head:true}).eq("referred_by",uid); if(error) return 0; return count||0; },
+    async leaders(){ return must(await sb.rpc("public_leaders")) || []; },
+    async areaCoordinators(state){ return must(await sb.rpc("area_coordinators",{p_state:state})) || []; },
+    async directory({state,lga,q}){ let qy=sb.from("members").select("id,full_name,profession,state,lga,ward,photo_url,role").eq("status","approved").eq("listed",true).neq("id",uid).order("created_at",{ascending:false}).limit(60);
+      if(state) qy=qy.eq("state",state); if(lga) qy=qy.eq("lga",lga);
+      if(q){ const s=q.replace(/[%,()]/g," ").trim(); if(s) qy=qy.or(`full_name.ilike.%${s}%,profession.ilike.%${s}%,lga.ilike.%${s}%`); }
+      return must(await qy) || []; },
+    async messages(room){ return must(await sb.from("messages").select("*").eq("room",room).order("created_at",{ascending:true}).limit(200)) || []; },
+    async send(room, body){ must(await sb.from("messages").insert({room, body})); },
+    subscribeRoom(room, cb){ roomCbs.set(room,[cb]); return ()=>roomCbs.delete(room); },
+    async dmPartners(){ return must(await sb.rpc("dm_partners")) || []; },
+    async outings(m){ return must(await sb.from("outings").select("*, outing_rsvps(member_id)").eq("state",m.state).eq("lga",m.lga).ilike("ward",m.ward).gte("starts_at",new Date(Date.now()-86400e3).toISOString()).order("starts_at")) || []; },
+    async createOuting(o){ must(await sb.from("outings").insert(o)); },
+    async rsvp(id,on){ if(on) must(await sb.from("outing_rsvps").insert({outing_id:id})); else must(await sb.from("outing_rsvps").delete().eq("outing_id",id).eq("member_id",uid)); },
+    async projects(state){ return must(await sb.from("projects").select("*").eq("state",state).order("created_at",{ascending:false})) || []; },
+    async addProject(p){ must(await sb.from("projects").insert(p)); },
+    async deleteProject(id){ must(await sb.from("projects").delete().eq("id",id)); },
+    async pending(){ return must(await sb.from("members").select("*, member_private(phone,email)").eq("status","pending").order("created_at").limit(200)) || []; },
+    async setStatus(id,status){ must(await sb.from("members").update({status}).eq("id",id)); },
+    async setRole(id,role){ must(await sb.from("members").update({role}).eq("id",id)); },
+    async candidates(state){ return must(await sb.rpc("coordinator_candidates",{p_state:state})) || []; }
+  };
+}
+
+/* ═════════════════════════ App state ═════════════════════════ */
+const api = LIVE ? makeLive() : makeDemo();
+const S = { me:null, session:null, tab:"map", stats:[], total:0, selState:null, selLga:null, feed:[], unsub:null, chatRoom:null, dmWith:null, photoBlob:null, photoUrl:null };
+const TABS = [["map","Map"],["card","My Card"],["ward","My Ward"],["people","People"],["ranks","Rankings"],["projects","Projects"],["admin","Admin"]];
+
+(function captureRef(){ const r=new URLSearchParams(location.search).get("ref"); if(r && /^[a-z0-9]{4,12}$/i.test(r)) ls.set("yp4t-ref", r); })();
+
+async function boot(){
+  $("#demoBar").hidden = LIVE;
+  try{ await api.init(); }catch(e){ $("#view").innerHTML=`<div class="panel err">${esc(e.message)}</div>`; return; }
+  api.onLive(onLive);
+  await refreshAuth();
+  setInterval(()=>{ if(S.me?.status==="approved") loadStats(); }, 30000);
+}
+async function refreshAuth(){
+  S.session = await api.session();
+  S.me = S.session ? await api.getMyProfile().catch(()=>null) : null;
+  renderTop();
+  if(!S.session) return renderLanding();
+  if(!S.me) return renderJoin();
+  if(S.me.status!=="approved"){ return renderPending(); }
+  await loadStats();
+  go(S.tab);
+}
+async function loadStats(){
+  try{ S.stats = await api.stats(); S.total = S.stats.reduce((a,r)=>a+Number(r.members),0); }catch(e){ console.warn(e); }
+  if(S.tab==="map" && S.me?.status==="approved") renderMapData();
+}
+function onLive(ev){
+  if(ev.type==="join"){ // demo
+    const m=ev.member; S.feed.unshift({first_name:first(m.full_name),profession:m.profession,state:m.state,lga:m.lga,created_at:m.created_at});
+    const r=S.stats.find(x=>x.state===m.state&&x.lga===m.lga&&x.ward===m.ward); if(r){ r.members++; r.new_7d++; if(m.has_pvc) r.pvc++; if(m.canvass) r.canvass++; } else S.stats.push({state:m.state,lga:m.lga,ward:m.ward,members:1,pvc:m.has_pvc?1:0,canvass:m.canvass?1:0,new_7d:1});
+    S.total++; if(S.tab==="map"&&S.me?.status==="approved"){ renderMapData(m.state); } if(!S.me) updateLandingCount();
+  } else if(ev.type==="refresh"){ clearTimeout(onLive._t); onLive._t=setTimeout(async()=>{ if(S.me?.status==="approved"){ const before=S.total; await loadStats(); try{ S.feed=await api.recentJoins(); }catch(e){} if(S.tab==="map") renderFeed(); if(S.total>before) pulseTotal(); } else if(!S.me) updateLandingCount(); }, 800); }
+}
+
+/* ═════════════════════════ Header + tabs ═════════════════════════ */
+function renderTop(){
+  const m=S.me, box=$("#meBox"), tabs=$("#tabs");
+  if(S.session){ box.innerHTML = `${m?avatar(m.photo_url,m.full_name):""}<button class="btn ghost sm" id="outBtn">Sign out</button>`; $("#outBtn").onclick=async()=>{ await api.signOut(); S.me=null; S.tab="map"; refreshAuth(); }; }
+  else box.innerHTML = `<button class="btn sm" id="topJoin">Join</button>`, $("#topJoin").onclick=()=>$("#email")?.focus();
+  const show = m && m.status==="approved";
+  tabs.hidden = !show;
+  if(show){ tabs.innerHTML = TABS.filter(([k])=>k!=="admin"||isManager(m)).map(([k,l])=>`<button class="tab" role="tab" data-tab="${k}" aria-selected="${S.tab===k}">${l}</button>`).join("");
+    tabs.querySelectorAll(".tab").forEach(b=>b.onclick=()=>go(b.dataset.tab)); }
+}
+function go(tab){
+  if(S.unsub){ S.unsub(); S.unsub=null; }
+  S.tab=tab; renderTop(); window.scrollTo(0,0);
+  ({map:renderMap,card:renderCard,ward:renderWard,people:renderPeople,ranks:renderRanks,projects:renderProjects,admin:renderAdmin}[tab]||renderMap)();
+}
+
+/* ═════════════════════════ Landing + sign in ═════════════════════════ */
+async function renderLanding(){
+  const ref = ls.get("yp4t-ref");
+  $("#view").innerHTML = `
+  <section class="hero">
+    <div class="stack" style="gap:18px">
+      ${ref?`<span class="pill g" style="align-self:flex-start">You were invited by a YP4T member</span>`:""}
+      <h1>Young professionals.<br><span class="g">One ward</span> at a time.</h1>
+      <p style="font-size:18px;max-width:52ch">Join the Young Professionals for Tinubu network. Get your membership card, meet members in your ward, and join the door-to-door campaign before the presidential election on <b>16 January 2027</b>.</p>
+      <div class="sunrise" style="max-width:420px"></div>
+      <div><div class="counter num" id="landCount">…</div><div class="eyebrow">young professionals have joined</div></div>
+    </div>
+    <div class="panel stack" id="authBox"></div>
+  </section>
+  <section class="stack" style="margin-top:28px">
+    <div class="steps">
+      <div class="step"><h3>1 · Sign up</h3><p class="muted">Your name, profession, state, LGA and ward. Takes two minutes.</p></div>
+      <div class="step"><h3>2 · Get your card</h3><p class="muted">A YP4T membership card with your photo, ready for your WhatsApp status.</p></div>
+      <div class="step"><h3>3 · Build your ward</h3><p class="muted">Invite others, chat with your ward team and join door-to-door outings.</p></div>
+    </div>
+    <div id="leadersBox"></div>
+  </section>`;
+  renderAuthBox("email");
+  updateLandingCount();
+  try{ const L=await api.leaders(); if(L.length) $("#leadersBox").innerHTML=`<div class="eyebrow" style="margin:10px 0 8px">Our coordinators</div><div class="leaders">${L.map(l=>`<div class="leader">${avatar(l.photo_url,l.full_name,"lg")}<div><b>${esc(l.full_name)}</b><div class="small muted">${ROLE_LABEL[l.role]}${l.role==="state"?" · "+esc(l.state):""}</div></div></div>`).join("")}</div>`; }catch(e){}
+}
+async function updateLandingCount(){ const el=$("#landCount"); if(!el) return; try{ el.textContent=fmt(await api.publicTotal()); }catch(e){ el.textContent="—"; } }
+function renderAuthBox(step, email=""){
+  const box=$("#authBox"); if(!box) return;
+  if(step==="email"){
+    box.innerHTML = `<h2>Join YP4T</h2><p class="muted">Enter your email. We'll send you a 6-digit code to sign in. No password needed.</p>
+    <form id="emailForm" class="stack"><label for="email">Email address<input type="email" id="email" required autocomplete="email" placeholder="you@example.com" value="${esc(email)}"></label>
+    <button class="btn" type="submit">Send my code</button><div class="err" id="authErr"></div></form>
+    <p class="small muted">Already a member? Use the same email to sign back in.</p>`;
+    $("#emailForm").onsubmit = async e=>{ e.preventDefault(); const em=$("#email").value.trim(); const b=e.submitter; b.disabled=true;
+      try{ await api.sendCode(em); renderAuthBox("code", em); }catch(err){ $("#authErr").textContent=err.message; b.disabled=false; } };
+  } else {
+    box.innerHTML = `<h2>Check your email</h2><p class="muted">We sent a 6-digit code to <b>${esc(email)}</b>. It can take a minute; check your spam folder too.</p>
+    ${LIVE?"":`<p class="pill w">Demo: type any 6 digits</p>`}
+    <form id="codeForm" class="stack"><label for="code">6-digit code<input type="text" id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required placeholder="123456" style="font-family:var(--mono);font-size:22px;letter-spacing:.3em"></label>
+    <button class="btn" type="submit">Sign in</button><div class="err" id="authErr"></div></form>
+    <button class="btn ghost sm" id="backBtn">Use a different email</button>`;
+    $("#backBtn").onclick=()=>renderAuthBox("email", email);
+    $("#codeForm").onsubmit = async e=>{ e.preventDefault(); const b=e.submitter; b.disabled=true;
+      try{ await api.verifyCode(email, $("#code").value.trim()); await refreshAuth(); }catch(err){ $("#authErr").textContent=err.message.includes("expired")||err.message.includes("invalid")?"That code is wrong or has expired. Request a new one.":err.message; b.disabled=false; } };
+    $("#code").focus();
+  }
+}
+
+/* ═════════════════════════ Join / edit profile ═════════════════════════ */
+function lgaOptions(state, sel){ return `<option value="">Choose LGA</option>` + (window.NG_LGAS[state]||[]).map(l=>`<option ${l===sel?"selected":""}>${esc(l)}</option>`).join(""); }
+function renderJoin(edit=false){
+  const m = S.me || {}; const email = S.session?.user?.email || "";
+  $("#view").innerHTML = `
+  <div class="stack" style="max-width:640px;margin:0 auto">
+    <div><div class="eyebrow">${edit?"Your details":"Step 2 of 2"}</div><h2>${edit?"Edit my profile":"Tell us about you"}</h2></div>
+    <form id="joinForm" class="panel stack">
+      <div class="row" style="gap:16px;align-items:center">
+        <span id="photoPrev">${avatar(m.photo_url,m.full_name||"You","lg")}</span>
+        <label for="photo" style="flex:1;min-width:200px">Your photo <span class="small muted" style="font-weight:400">for your card and profile</span><input type="file" id="photo" accept="image/*"></label>
+      </div>
+      <label for="fullName">Full name<input type="text" id="fullName" required maxlength="80" value="${esc(m.full_name||"")}" placeholder="Oluwaseun Adeyemi"></label>
+      <label for="profession">Profession<input type="text" id="profession" required maxlength="60" list="profList" value="${esc(m.profession||"")}" placeholder="e.g. Nurse, Engineer, Lawyer"></label>
+      <datalist id="profList">${PROFESSIONS.map(p=>`<option value="${esc(p)}">`).join("")}</datalist>
+      <label for="phone">Phone number <span class="small muted" style="font-weight:400">only your coordinators can see this</span><input type="tel" id="phone" required value="${esc(m.phone||"")}" placeholder="0803 000 0000"></label>
+      <div class="grid2" style="gap:12px">
+        <label for="state">State<select id="state" required><option value="">Choose state</option>${STATES.map(s=>`<option ${s===m.state?"selected":""}>${s}</option>`).join("")}</select></label>
+        <label for="lga">Local Government Area<select id="lga" required>${lgaOptions(m.state,m.lga)}</select></label>
+      </div>
+      <label for="ward">Ward <span class="small muted" style="font-weight:400">on your PVC it's the line under DELIM, after your state and LGA, e.g. "Egbe/Agodo". Just type the name; never upload or send your PVC.</span><input type="text" id="ward" required maxlength="60" value="${esc(m.ward||"")}"></label>
+      <fieldset class="stack" style="border:0;padding:0;margin:0;gap:10px">
+        <legend class="eyebrow" style="margin-bottom:8px">Voting and campaign</legend>
+        <label class="check" for="pvc"><input type="checkbox" id="pvc" ${m.has_pvc?"checked":""}><span>I have my PVC (Permanent Voter's Card) and I'm ready to vote. <span class="muted">Don't share your PVC number with anyone.</span></span></label>
+        <label class="check" for="canvass"><input type="checkbox" id="canvass" ${m.canvass?"checked":""}><span>Count me in for <b>door-to-door campaigning</b> in my ward.</span></label>
+        <label class="check" for="listed"><input type="checkbox" id="listed" ${m.listed!==false?"checked":""}><span>Show me in the members directory so others in my area can message me. <span class="muted">Members see your first name, profession, LGA and ward only.</span></span></label>
+        ${edit?"":`<label class="check" for="consent"><input type="checkbox" id="consent" required><span>I agree that YP4T stores these details to organise the campaign, in line with the Nigeria Data Protection Act. I can edit or delete my profile at any time.</span></label>`}
+      </fieldset>
+      <div class="err" id="joinErr"></div>
+      <div class="row"><button class="btn" type="submit">${edit?"Save changes":"Join YP4T"}</button>${edit?`<button class="btn ghost" type="button" id="cancelEdit">Cancel</button>`:""}</div>
+    </form>
+  </div>`;
+  $("#state").onchange = e => $("#lga").innerHTML = lgaOptions(e.target.value);
+  $("#photo").onchange = async e => { const f=e.target.files[0]; if(!f) return; try{ S.photoBlob = await squarePhoto(f, 720); S.photoUrl=URL.createObjectURL(S.photoBlob); $("#photoPrev").innerHTML=`<img class="avatar lg" src="${S.photoUrl}" alt="">`; }catch(err){ toast("That photo couldn't be read. Try a JPG or PNG."); } };
+  if(edit) $("#cancelEdit").onclick=()=>go("card");
+  $("#joinForm").onsubmit = async e => {
+    e.preventDefault(); const b=e.submitter; b.disabled=true; $("#joinErr").textContent="";
+    try{
+      let photo_url = null;
+      if(S.photoBlob) photo_url = await api.uploadPhoto(S.photoBlob);
+      const phone=$("#phone").value.replace(/[^\d+]/g,""); if(phone.length<10) throw new Error("Enter a valid phone number.");
+      await api.saveProfile({ full_name:titleCase($("#fullName").value), profession:titleCase($("#profession").value), phone, email,
+        state:$("#state").value, lga:$("#lga").value, ward:titleCase($("#ward").value), has_pvc:$("#pvc").checked, canvass:$("#canvass").checked, listed:$("#listed").checked, photo_url });
+      S.photoBlob=null; S.tab = edit ? "card" : "card";
+      if(!edit) ls.del("yp4t-ref");
+      await refreshAuth(); toast(edit?"Profile saved":"Welcome to YP4T!");
+    }catch(err){ $("#joinErr").textContent = err.message; b.disabled=false; }
+  };
+}
+async function squarePhoto(file, size){
+  const url=URL.createObjectURL(file); const img=new Image(); img.src=url; await img.decode();
+  const s=Math.min(img.naturalWidth,img.naturalHeight); const c=document.createElement("canvas"); c.width=c.height=size;
+  c.getContext("2d").drawImage(img,(img.naturalWidth-s)/2,(img.naturalHeight-s)/3,s,s,0,0,size,size); URL.revokeObjectURL(url);
+  return await new Promise(r=>c.toBlob(r,"image/jpeg",.86));
+}
+function renderPending(){
+  const m=S.me;
+  $("#view").innerHTML = `<div class="stack" style="max-width:640px;margin:0 auto">
+    <span class="pill w" style="align-self:flex-start">Waiting for approval</span>
+    <h2>Thanks, ${esc(first(m.full_name))}. You're almost in.</h2>
+    <p>A YP4T coordinator will approve your membership shortly. Once approved you'll see the live map, your ward team and the chat.</p>
+    <p class="muted">Joining through a member's invite link gets you approved straight away. If someone in YP4T invited you, ask them for their link.</p>
+    <div class="row"><button class="btn" id="chk">Check again</button><button class="btn ghost" id="edit">Edit my details</button></div></div>`;
+  $("#chk").onclick=refreshAuth; $("#edit").onclick=()=>renderJoin(true);
+}
+
+/* ═════════════════════════ MAP ═════════════════════════ */
+function agg(rows, key){ const m=new Map(); for(const r of rows){ const k=key(r); let a=m.get(k); if(!a){ a={members:0,pvc:0,canvass:0,new_7d:0}; m.set(k,a); } a.members+=+r.members; a.pvc+=+r.pvc; a.canvass+=+r.canvass; a.new_7d+=+r.new_7d; } return m; }
+async function renderMap(){
+  if(!S.selState) S.selState = S.me.state;
+  $("#view").innerHTML = `
+  <div class="stack" style="gap:20px">
+    <div class="row" style="justify-content:space-between;align-items:flex-end">
+      <div><div class="eyebrow">Live · Young Professionals for Tinubu</div><div class="counter num" id="total">${fmt(S.total)}</div><div class="muted">approved members across Nigeria</div></div>
+      <div class="stats3" style="min-width:min(100%,380px)" id="natStats"></div>
+    </div>
+    <div class="mapbox">
+      <div class="panel stack">
+        <div class="row" style="justify-content:space-between"><h3>Nigeria</h3><div class="legend">fewer <i></i> more</div></div>
+        <div class="tiles" id="tiles" role="group" aria-label="Map of Nigerian states"></div>
+        <p class="small muted">Tap a state to see its LGAs and wards. Numbers update live as people join.</p>
+      </div>
+      <div class="panel stack" id="areaPanel"></div>
+    </div>
+    <div class="grid2">
+      <div class="panel stack"><h3>Fastest growing this week</h3><div id="growth"></div></div>
+      <div class="panel stack"><h3>Just joined</h3><div class="feed" id="feed"></div></div>
+    </div>
+  </div>`;
+  renderMapData();
+  try{ S.feed = await api.recentJoins(); }catch(e){} renderFeed();
+}
+function renderMapData(flash){
+  const tiles=$("#tiles"); if(!tiles) return;
+  const byState=agg(S.stats, r=>r.state); const max=Math.max(1,...[...byState.values()].map(a=>a.members));
+  const tot=agg(S.stats,()=>1).get(1)||{members:0,pvc:0,canvass:0};
+  S.total = tot.members; $("#total").textContent=fmt(S.total);
+  $("#natStats").innerHTML = `<div class="stat"><b>${fmt(tot.pvc)}</b><span class="small muted">have PVCs</span></div><div class="stat"><b>${fmt(tot.canvass)}</b><span class="small muted">door-to-door</span></div><div class="stat"><b>${byState.size}</b><span class="small muted">states active</span></div>`;
+  tiles.innerHTML = Object.entries(TILES).map(([s,[c,x,y]])=>{ const n=byState.get(s)?.members||0; const p=n?Math.round(18+82*Math.sqrt(n/max)):0;
+    const dark = p>55; return `<button class="tile ${s===S.selState?"sel":""} ${s===flash?"pulse":""}" style="grid-column:${x+1};grid-row:${y+1};background:color-mix(in oklab,var(--green) ${p}%,var(--tile0));color:${dark?"#fff":"var(--ink)"}" data-s="${esc(s)}" aria-label="${esc(s)}: ${n} members"><b>${c}</b><span>${fmt(n)}</span></button>`; }).join("");
+  tiles.querySelectorAll(".tile").forEach(t=>t.onclick=()=>{ S.selState=t.dataset.s; S.selLga=null; renderMapData(); });
+  const growth=[...byState].sort((a,b)=>b[1].new_7d-a[1].new_7d).slice(0,6); const gmax=Math.max(1,...growth.map(g=>g[1].new_7d));
+  $("#growth").innerHTML = growth.length? `<div class="bars">${growth.map(([s,a])=>`<div class="bar"><span class="t"><i style="width:${a.new_7d/gmax*100}%"></i>${esc(s)}</span><span class="n">+${fmt(a.new_7d)}</span></div>`).join("")}</div>` : `<div class="empty">No new members this week yet.</div>`;
+  renderArea();
+}
+async function renderArea(){
+  const box=$("#areaPanel"); if(!box) return; const s=S.selState;
+  const rows=S.stats.filter(r=>r.state===s); const tot=agg(rows,()=>1).get(1)||{members:0,pvc:0,canvass:0};
+  let list, title, back="";
+  if(!S.selLga){
+    const by=agg(rows,r=>r.lga); const all=(window.NG_LGAS[s]||[]).map(l=>[l,by.get(l)?.members||0]).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]));
+    const mx=Math.max(1,...all.map(a=>a[1])); title=`${all.length} LGAs`;
+    list = all.map(([l,n])=>`<button class="bar" data-l="${esc(l)}"><span class="t"><i style="width:${n/mx*100}%"></i>${esc(l)}</span><span class="n">${fmt(n)}</span></button>`).join("");
+  } else {
+    const lr=rows.filter(r=>r.lga===S.selLga); const by=agg(lr,r=>r.ward||"Ward not set"); const all=[...by].sort((a,b)=>b[1].members-a[1].members); const mx=Math.max(1,...all.map(a=>a[1].members));
+    const lt=agg(lr,()=>1).get(1)||{members:0}; title=`${esc(S.selLga)} · ${fmt(lt.members)} members in ${all.length} wards`; back=`<button class="btn ghost sm" id="backLga">← All LGAs</button>`;
+    list = all.length? all.map(([w,a])=>`<div class="bar"><span class="t"><i style="width:${a.members/mx*100}%"></i>${esc(w)} <span class="muted small">· ${a.canvass} door-to-door</span></span><span class="n">${fmt(a.members)}</span></div>`).join("") : `<div class="empty">No members in this LGA yet. Share your invite link with people here.</div>`;
+  }
+  box.innerHTML = `<div class="row" style="justify-content:space-between"><h3>${esc(s)}</h3>${back}</div>
+    <div id="coordBox"></div>
+    <div class="stats3"><div class="stat"><b>${fmt(tot.members)}</b><span class="small muted">members</span></div><div class="stat"><b>${fmt(tot.pvc)}</b><span class="small muted">have PVCs</span></div><div class="stat"><b>${fmt(tot.canvass)}</b><span class="small muted">door-to-door</span></div></div>
+    <div class="eyebrow">${title}</div><div class="bars">${list}</div>`;
+  box.querySelectorAll("button.bar").forEach(b=>b.onclick=()=>{ S.selLga=b.dataset.l; renderArea(); });
+  $("#backLga")?.addEventListener("click",()=>{ S.selLga=null; renderArea(); });
+  try{ const C=(await api.areaCoordinators(s)).filter(c=>c.role==="state"&&c.state===s); const cb=$("#coordBox"); if(cb && S.selState===s)
+    cb.innerHTML = C.length? C.map(c=>`<div class="person">${avatar(c.photo_url,c.full_name)}<div><div class="nm">${esc(c.full_name)}</div><div class="sub">State Coordinator</div></div>${c.id!==S.me.id?`<button class="btn sm ghost" data-dm="${c.id}" data-n="${esc(c.full_name)}">Message</button>`:""}</div>`).join("") : `<p class="small muted">No State Coordinator yet for ${esc(s)}.</p>`;
+    cb?.querySelectorAll("[data-dm]").forEach(b=>b.onclick=()=>openDm(b.dataset.dm,b.dataset.n)); }catch(e){}
+}
+function renderFeed(){ const f=$("#feed"); if(!f) return; f.innerHTML = S.feed.length? S.feed.slice(0,8).map(j=>`<div><b>${esc(j.first_name)}</b><span class="muted">${esc(j.profession)} · ${esc(j.lga)}, ${esc(j.state)}</span><time>${ago(j.created_at)}</time></div>`).join("") : `<div class="empty">New members will appear here.</div>`; }
+function pulseTotal(){ const t=$("#total"); if(t){ t.animate?.([{color:"var(--red)"},{color:"var(--green)"}],{duration:900}); } }
+
+/* ═════════════════════════ MEMBERSHIP CARD ═════════════════════════ */
+let LOGO_IMG=null;
+async function loadLogo(){ if(LOGO_IMG) return LOGO_IMG; const i=new Image(); i.src="logo.png"; await i.decode(); return LOGO_IMG=i; }
+async function drawCard(m){
+  await Promise.all([document.fonts.load('900 80px "Big Shoulders Display"'),document.fonts.load('800 40px "Figtree"'),document.fonts.load('600 30px "IBM Plex Mono"')]).catch(()=>{});
+  const W=1080, c=document.createElement("canvas"); c.width=c.height=W; const x=c.getContext("2d");
+  const G="#2E9B53", R="#DF3F3B", B="#45B5DF", N="#1B2140";
+  x.fillStyle="#FFFFFF"; x.fillRect(0,0,W,W);
+  // sunrise rays echoing the logo
+  x.save(); x.translate(W/2, W+120); const cols=[G,B,R,G,B,G,R,B,G];
+  for(let i=0;i<9;i++){ const a0=Math.PI+i*(Math.PI/9)+0.02, a1=a0+Math.PI/9-0.04; x.beginPath(); x.arc(0,0,1500,a0,a1); x.arc(0,0,1160,a1,a0,true); x.closePath(); x.fillStyle=cols[i]; x.globalAlpha=.13; x.fill(); }
+  x.restore(); x.globalAlpha=1;
+  // top band
+  x.fillStyle=G; x.fillRect(0,0,W,16); x.fillStyle=B; x.fillRect(W*.34,0,W*.18,16); x.fillStyle=R; x.fillRect(W*.52,0,W*.18,16);
+  const logo=await loadLogo(); const lw=300, lh=lw*logo.naturalHeight/logo.naturalWidth; x.drawImage(logo,64,52,lw,lh);
+  x.textAlign="right"; x.fillStyle=N; x.font='600 26px "IBM Plex Mono", monospace'; x.fillText("MEMBERSHIP CARD",W-64,92);
+  x.fillStyle=R; x.font='600 26px "IBM Plex Mono", monospace'; x.fillText(memberNo(m),W-64,130);
+  x.fillStyle=G; x.font='900 64px "Big Shoulders Display", Impact, sans-serif'; x.fillText("PROUD MEMBER",W-64,212);
+  // photo
+  const px=W/2, py=500, pr=150;
+  x.beginPath(); x.arc(px,py,pr+12,0,Math.PI*2); x.fillStyle=G; x.fill();
+  x.beginPath(); x.arc(px,py,pr+4,0,Math.PI*2); x.fillStyle="#fff"; x.fill();
+  x.save(); x.beginPath(); x.arc(px,py,pr,0,Math.PI*2); x.clip();
+  if(m.photo_url){ try{ const im=new Image(); im.crossOrigin="anonymous"; im.src=m.photo_url; await im.decode(); x.drawImage(im,px-pr,py-pr,pr*2,pr*2); }catch(e){ x.fillStyle="#E4EAE0"; x.fillRect(px-pr,py-pr,pr*2,pr*2); } }
+  else { x.fillStyle="#E4EAE0"; x.fillRect(px-pr,py-pr,pr*2,pr*2); x.fillStyle="#8A93A6"; x.textAlign="center"; x.font='900 120px "Big Shoulders Display", Impact'; x.fillText(initials(m.full_name),px,py+42); }
+  x.restore();
+  // name + profession
+  x.textAlign="center"; x.fillStyle=N; let fs=86; const name=m.full_name.toUpperCase();
+  do{ x.font=`900 ${fs}px "Big Shoulders Display", Impact, sans-serif`; fs-=4; } while(x.measureText(name).width>W-140 && fs>40);
+  x.fillText(name,W/2,740);
+  x.fillStyle=G; x.font='800 40px "Figtree", sans-serif'; x.fillText(m.profession.toUpperCase(),W/2,796);
+  x.fillStyle="#5B6377"; x.font='600 30px "Figtree", sans-serif'; x.fillText(`${m.lga}, ${m.state === "FCT" ? "Abuja (FCT)" : m.state+" State"}`,W/2,842);
+  // vote banner
+  const by=890, bh=126; x.fillStyle=R; roundRect(x,64,by,W-128,bh,18); x.fill();
+  x.fillStyle="#fff"; const vote="I'M VOTING PRESIDENT TINUBU 2027"; let vf=64;
+  do{ x.font=`900 ${vf}px "Big Shoulders Display", Impact, sans-serif`; vf-=2; } while(x.measureText(vote).width>W-190 && vf>28);
+  x.fillText(vote,W/2,by+bh/2+vf*0.36);
+  x.fillStyle=N; x.font='600 24px "IBM Plex Mono", monospace'; x.fillText("YOUNG PROFESSIONALS FOR TINUBU · RENEWED HOPE",W/2,1052);
+  return c;
+}
+function roundRect(x,a,b,w,h,r){ x.beginPath(); x.moveTo(a+r,b); x.arcTo(a+w,b,a+w,b+h,r); x.arcTo(a+w,b+h,a,b+h,r); x.arcTo(a,b+h,a,b,r); x.arcTo(a,b,a+w,b,r); x.closePath(); }
+async function renderCard(){
+  const m=S.me;
+  $("#view").innerHTML = `<div class="cardwrap">
+    <div class="stack"><img id="cardImg" alt="Your YP4T membership card"></div>
+    <div class="stack">
+      <div><div class="eyebrow">${ROLE_LABEL[m.role]} · ${esc(memberNo(m))}</div><h2>Your membership card</h2></div>
+      <p>Post it on your WhatsApp status and set it as your profile picture. Every share tells your contacts that young professionals are voting President Tinubu.</p>
+      <div class="row"><button class="btn" id="dl">Download card</button><button class="btn ghost" id="share">Share</button><button class="btn ghost" id="editP">Edit my details</button></div>
+      <p class="small muted">On a phone you can also press and hold the card to save it.</p>
+      <div class="panel stack">
+        <h3>Your invite link</h3>
+        <p class="small muted">People who join through your link are approved straight away and count towards your ranking.</p>
+        <div class="row"><input type="text" id="inv" readonly value="${esc(inviteLink(m))}" style="flex:1;min-width:0;font-family:var(--mono);font-size:13px"><button class="btn sm" id="copyInv">Copy</button></div>
+        <div class="row"><span class="pill g" id="recruits">… people joined through you</span></div>
+        <a class="btn ghost sm" style="align-self:flex-start" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent("I just joined Young Professionals for Tinubu (YP4T). Get your membership card and join our ward team: "+inviteLink(m))}">Send on WhatsApp</a>
+      </div>
+    </div></div>`;
+  $("#editP").onclick=()=>renderJoin(true);
+  $("#copyInv").onclick=()=>copy(inviteLink(m));
+  api.myRecruits().then(n=>{ const r=$("#recruits"); if(r) r.textContent=`${fmt(n)} ${n===1?"person":"people"} joined through you`; });
+  let canvas;
+  try{ canvas=await drawCard(m); $("#cardImg").src=canvas.toDataURL("image/png"); }catch(e){ toast("The card could not be drawn. Try another photo."); return; }
+  const fname=`YP4T-${m.full_name.replace(/\W+/g,"-")}.png`;
+  $("#dl").onclick=()=>{ const a=document.createElement("a"); a.href=canvas.toDataURL("image/png"); a.download=fname; document.body.appendChild(a); a.click(); a.remove(); };
+  $("#share").onclick=async()=>{ try{ const blob=await new Promise(r=>canvas.toBlob(r,"image/png")); const file=new File([blob],fname,{type:"image/png"});
+      if(navigator.canShare?.({files:[file]})) await navigator.share({files:[file],text:"I'm a Young Professional for Tinubu. Join us: "+inviteLink(m)}); else { copy(inviteLink(m)); toast("Sharing isn't supported here. Download the card instead."); } }catch(e){} };
+}
+
+/* ═════════════════════════ MY WARD ═════════════════════════ */
+async function renderWard(){
+  const m=S.me; const rows=S.stats.filter(r=>r.state===m.state&&r.lga===m.lga&&String(r.ward).toLowerCase()===m.ward.toLowerCase());
+  const t=agg(rows,()=>1).get(1)||{members:0,pvc:0,canvass:0};
+  $("#view").innerHTML = `<div class="stack" style="gap:20px">
+    <div><div class="eyebrow">${esc(m.lga)} · ${esc(m.state)}</div><h2>${esc(m.ward)} team</h2></div>
+    <div class="stats3" style="max-width:520px"><div class="stat"><b>${fmt(t.members)}</b><span class="small muted">members</span></div><div class="stat"><b>${fmt(t.pvc)}</b><span class="small muted">have PVCs</span></div><div class="stat"><b>${fmt(t.canvass)}</b><span class="small muted">door-to-door</span></div></div>
+    <div class="grid2" style="align-items:start">
+      <div class="stack">
+        <div class="panel stack"><h3>Door-to-door</h3>
+          <label class="check" for="cv"><input type="checkbox" id="cv" ${m.canvass?"checked":""}><span>I'll canvass in my ward</span></label>
+          <div id="coords"></div></div>
+        <div class="panel stack"><div class="row" style="justify-content:space-between"><h3>Outings</h3>${isManager(m)?`<button class="btn sm" id="newOut">Plan an outing</button>`:""}</div>
+          <form id="outForm" class="stack" hidden>
+            <label for="oTitle">What<input type="text" id="oTitle" required maxlength="120" placeholder="Door-to-door: Ikate Phase 1 streets"></label>
+            <label for="oPlace">Meeting point<input type="text" id="oPlace" required maxlength="160" placeholder="Ikate Junction, by the filling station"></label>
+            <label for="oWhen">Date and time<input type="datetime-local" id="oWhen" required></label>
+            <div class="row"><button class="btn sm" type="submit">Post outing</button><button class="btn ghost sm" type="button" id="oCancel">Cancel</button></div>
+            <p class="small muted">Meet in a public place and go out in groups.</p></form>
+          <div id="outList" class="stack" style="gap:8px"></div></div>
+      </div>
+      <div class="stack"><div class="row" style="justify-content:space-between"><h3>Chat</h3><div class="seg" id="roomSeg"><button aria-pressed="true" data-r="ward">${esc(m.ward)}</button><button aria-pressed="false" data-r="state">${esc(m.state)}</button></div></div><div id="chatBox"></div></div>
+    </div></div>`;
+  $("#cv").onchange=async e=>{ try{ await api.saveProfile({...m, canvass:e.target.checked, photo_url:null}); S.me.canvass=e.target.checked; toast(e.target.checked?"You're on the door-to-door team":"Removed from door-to-door"); }catch(err){ toast(err.message); } };
+  if($("#newOut")){ $("#newOut").onclick=()=>{ $("#outForm").hidden=false; }; $("#oCancel").onclick=()=>{ $("#outForm").hidden=true; };
+    $("#outForm").onsubmit=async e=>{ e.preventDefault(); try{ await api.createOuting({state:m.state,lga:m.lga,ward:m.ward,title:$("#oTitle").value.trim(),place:$("#oPlace").value.trim(),starts_at:new Date($("#oWhen").value).toISOString()}); $("#outForm").reset(); $("#outForm").hidden=true; loadOutings(); toast("Outing posted"); }catch(err){ toast(err.message); } }; }
+  $("#roomSeg").querySelectorAll("button").forEach(b=>b.onclick=()=>{ $("#roomSeg").querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===b)); openChat($("#chatBox"), b.dataset.r==="ward"?wardRoom(m):"state:"+m.state, b.dataset.r==="ward"?"Say hello to your ward team":"Talk to members across "+m.state); });
+  openChat($("#chatBox"), wardRoom(m), "Say hello to your ward team");
+  loadOutings();
+  try{ const C=await api.areaCoordinators(m.state); const mine=C.filter(c=>c.role==="national"||c.role==="state"||(c.lga===m.lga&&(c.role==="lga"||(c.role==="ward"&&c.ward.toLowerCase()===m.ward.toLowerCase()))));
+    $("#coords").innerHTML = `<div class="eyebrow">Your coordinators</div>` + (mine.length? mine.map(c=>`<div class="person">${avatar(c.photo_url,c.full_name)}<div><div class="nm">${esc(c.full_name)}</div><div class="sub">${ROLE_LABEL[c.role]}</div></div>${c.id!==m.id?`<button class="btn sm ghost" data-dm="${c.id}" data-n="${esc(c.full_name)}">Message</button>`:""}</div>`).join("") : `<p class="small muted">Your ward has no coordinator yet. The most active members get picked, so invite people and join outings.</p>`);
+    $("#coords").querySelectorAll("[data-dm]").forEach(b=>b.onclick=()=>openDm(b.dataset.dm,b.dataset.n)); }catch(e){}
+}
+async function loadOutings(){
+  const box=$("#outList"); if(!box) return; let L=[]; try{ L=await api.outings(S.me); }catch(e){}
+  box.innerHTML = L.length? L.map(o=>{ const d=new Date(o.starts_at); const going=(o.outing_rsvps||[]).some(r=>r.member_id===S.me.id); return `<div class="outing"><div class="date"><b>${d.getDate()}</b>${d.toLocaleString("en-NG",{month:"short"}).toUpperCase()}</div><div style="flex:1;min-width:160px"><b>${esc(o.title)}</b><div class="small muted">${esc(o.place)} · ${d.toLocaleTimeString("en-NG",{hour:"numeric",minute:"2-digit"})} · ${(o.outing_rsvps||[]).length} going</div></div><button class="btn sm ${going?"":"ghost"}" data-o="${o.id}" data-on="${!going}">${going?"✓ Going":"I'm going"}</button></div>`; }).join("") : `<div class="empty">No outings planned yet.${isManager(S.me)?" Plan the first one.":" Your coordinator will post them here."}</div>`;
+  box.querySelectorAll("[data-o]").forEach(b=>b.onclick=async()=>{ try{ await api.rsvp(+b.dataset.o, b.dataset.on==="true"); loadOutings(); }catch(err){ toast(err.message); } });
+}
+async function openChat(box, room, emptyText){
+  if(S.unsub){ S.unsub(); S.unsub=null; }
+  box.innerHTML = `<div class="chat"><div class="msgs" id="msgs"><div class="empty">Loading…</div></div><form class="composer" id="comp"><input type="text" id="msgIn" maxlength="1000" placeholder="Write a message" autocomplete="off" aria-label="Message"><button class="btn sm" type="submit">Send</button></form></div>`;
+  const list=$("#msgs", box); const seen=new Set();
+  const add=msg=>{ if(seen.has(msg.id)) return; seen.add(msg.id); list.querySelector(".empty")?.remove(); const mine=msg.sender===S.me.id;
+    list.insertAdjacentHTML("beforeend", `<div class="msg ${mine?"mine":""}">${mine?"":avatar(msg.sender_photo,msg.sender_name)}<div class="bub">${mine?"":`<div class="who">${esc(shortName(msg.sender_name))}</div>`}${esc(msg.body)}<div class="small muted">${new Date(msg.created_at).toLocaleTimeString("en-NG",{hour:"numeric",minute:"2-digit"})}</div></div></div>`);
+    list.scrollTop=list.scrollHeight; };
+  try{ const M=await api.messages(room); list.innerHTML = M.length?"":`<div class="empty">${esc(emptyText)}</div>`; M.forEach(add); }catch(e){ list.innerHTML=`<div class="empty">${esc(e.message)}</div>`; }
+  S.unsub = api.subscribeRoom(room, add);
+  $("#comp", box).onsubmit=async e=>{ e.preventDefault(); const i=$("#msgIn",box); const v=i.value.trim(); if(!v) return; i.value=""; try{ await api.send(room, v); if(api.mode==="live"){ /* realtime adds it */ } }catch(err){ toast(err.message); i.value=v; } };
+}
+
+/* ═════════════════════════ PEOPLE + DMs ═════════════════════════ */
+async function renderPeople(){
+  const m=S.me;
+  $("#view").innerHTML = `<div class="stack" style="gap:18px">
+    <div><div class="eyebrow">Members directory</div><h2>Find young professionals</h2></div>
+    <div class="panel row" style="gap:10px">
+      <select id="fState" style="flex:1;min-width:150px" aria-label="State"><option value="">All states</option>${STATES.map(s=>`<option ${s===m.state?"selected":""}>${s}</option>`).join("")}</select>
+      <select id="fLga" style="flex:1;min-width:150px" aria-label="LGA">${lgaOptions(m.state,m.lga).replace("Choose LGA","All LGAs")}</select>
+      <input type="text" id="fQ" placeholder="Search name or profession" style="flex:2;min-width:180px" aria-label="Search">
+    </div>
+    <div id="dmBox" hidden></div>
+    <div><h3 style="margin-bottom:10px">Private chats</h3><div id="inbox" class="people"></div></div>
+    <div><h3 style="margin-bottom:10px">Members</h3><div id="dir" class="people"></div></div>
+  </div>`;
+  const load=async()=>{ const d=$("#dir"); d.innerHTML=`<div class="empty">Loading…</div>`; try{ const L=await api.directory({state:$("#fState").value,lga:$("#fLga").value,q:$("#fQ").value.trim()});
+    d.innerHTML = L.length? L.map(p=>`<div class="person">${avatar(p.photo_url,p.full_name)}<div><div class="nm">${esc(shortName(p.full_name))}${p.role!=="member"?` <span class="pill g">${ROLE_LABEL[p.role].split(" ")[0]}</span>`:""}</div><div class="sub">${esc(p.profession)} · ${esc(p.lga)}${p.ward?", "+esc(p.ward):""}</div></div><button class="btn sm ghost" data-dm="${p.id}" data-n="${esc(p.full_name)}">Message</button></div>`).join("") : `<div class="empty">No members found here yet. Share your invite link.</div>`;
+    d.querySelectorAll("[data-dm]").forEach(b=>b.onclick=()=>openDm(b.dataset.dm,b.dataset.n)); }catch(e){ d.innerHTML=`<div class="empty">${esc(e.message)}</div>`; } };
+  $("#fState").onchange=e=>{ $("#fLga").innerHTML=lgaOptions(e.target.value).replace("Choose LGA","All LGAs"); load(); };
+  $("#fLga").onchange=load; let t; $("#fQ").oninput=()=>{ clearTimeout(t); t=setTimeout(load,350); };
+  load(); loadInbox();
+  if(S.dmWith){ const d=S.dmWith; S.dmWith=null; showDm(d.id,d.name); }
+}
+async function loadInbox(){ const b=$("#inbox"); if(!b) return; try{ const L=await api.dmPartners(); b.innerHTML = L.length? L.map(p=>`<div class="person">${avatar(p.partner_photo,p.partner_name)}<div><div class="nm">${esc(shortName(p.partner_name))}</div><div class="sub">${esc(p.last_body)}</div></div><button class="btn sm" data-dm="${p.partner}" data-n="${esc(p.partner_name)}">Open</button></div>`).join("") : `<div class="empty">No private chats yet. Tap Message on any member.</div>`;
+  b.querySelectorAll("[data-dm]").forEach(x=>x.onclick=()=>showDm(x.dataset.dm,x.dataset.n)); }catch(e){ b.innerHTML=""; } }
+function openDm(id,name){ S.dmWith={id,name}; if(S.tab!=="people") go("people"); else showDm(id,name); }
+function showDm(id,name){ const box=$("#dmBox"); box.hidden=false; box.innerHTML=`<div class="row" style="justify-content:space-between;margin-bottom:8px"><h3>Chat with ${esc(shortName(name))}</h3><button class="btn ghost sm" id="closeDm">Close</button></div><div id="dmChat"></div>`;
+  $("#closeDm").onclick=()=>{ box.hidden=true; if(S.unsub){S.unsub();S.unsub=null;} loadInbox(); };
+  openChat($("#dmChat"), dmRoom(S.me.id,id), "Start the conversation. Be respectful; members can report abuse to coordinators.");
+  box.scrollIntoView({behavior:"smooth",block:"start"}); }
+
+/* ═════════════════════════ RANKINGS ═════════════════════════ */
+async function renderRanks(){
+  const by=[...agg(S.stats,r=>r.state)].sort((a,b)=>b[1].members-a[1].members);
+  $("#view").innerHTML = `<div class="stack" style="gap:18px">
+    <div><div class="eyebrow">Leaderboards</div><h2>Who's building fastest</h2></div>
+    <div class="grid2" style="align-items:start">
+      <div class="panel"><h3 style="margin-bottom:8px">States</h3><div class="scroll"><table><thead><tr><th>#</th><th>State</th><th class="n">Members</th><th class="n">This week</th><th class="n">PVC %</th></tr></thead><tbody>
+        ${by.map(([s,a],i)=>`<tr ${s===S.me.state?'style="background:var(--soft)"':""}><td class="num">${i+1}</td><td>${esc(s)}</td><td class="n">${fmt(a.members)}</td><td class="n">+${fmt(a.new_7d)}</td><td class="n">${a.members?Math.round(a.pvc/a.members*100):0}%</td></tr>`).join("")}</tbody></table></div></div>
+      <div class="panel"><h3 style="margin-bottom:8px">Top recruiters</h3><div id="recs"><div class="empty">Loading…</div></div>
+        <button class="btn sm" style="margin-top:12px" id="toCard">Get my invite link</button></div>
+    </div></div>`;
+  $("#toCard").onclick=()=>go("card");
+  try{ const R=await api.topRecruiters(); $("#recs").innerHTML = R.length? `<div class="scroll"><table><thead><tr><th>#</th><th>Member</th><th>Area</th><th class="n">Recruits</th></tr></thead><tbody>${R.map((r,i)=>`<tr><td class="num">${i+1}</td><td>${esc(r.first_name)}</td><td class="small">${esc(r.lga)}, ${esc(r.state)}</td><td class="n">${fmt(r.recruits)}</td></tr>`).join("")}</tbody></table></div>` : `<div class="empty">No referrals yet. Be the first.</div>`; }catch(e){ $("#recs").innerHTML=`<div class="empty">${esc(e.message)}</div>`; }
+}
+
+/* ═════════════════════════ PROJECTS ═════════════════════════ */
+async function renderProjects(){
+  const st = S.projState || S.me.state; const canAdd = S.me.role==="admin"||S.me.role==="national"||(S.me.role==="state"&&S.me.state===st);
+  $("#view").innerHTML = `<div class="stack" style="gap:18px">
+    <div><div class="eyebrow">Renewed Hope in your state</div><h2>Projects and policies</h2></div>
+    <p class="muted" style="max-width:65ch">Completed projects, student loans (NELFUND) and credit-scheme figures, state by state. Every entry links to an official or news source so members can share it with confidence.</p>
+    <div class="row"><select id="pState" style="max-width:260px" aria-label="State">${STATES.map(s=>`<option ${s===st?"selected":""}>${s}</option>`).join("")}</select>${canAdd?`<button class="btn sm" id="addP">Add an entry</button>`:""}</div>
+    <form id="pForm" class="panel stack" hidden>
+      <label for="pTitle">Title<input type="text" id="pTitle" required maxlength="160" placeholder="e.g. NELFUND student loans disbursed in ${esc(st)}"></label>
+      <label for="pCat">Category<select id="pCat"><option>Infrastructure</option><option>Student loans (NELFUND)</option><option>Credit scheme</option><option>Health</option><option>Education</option><option>Agriculture</option><option>Energy</option><option>Security</option><option>Other</option></select></label>
+      <label for="pSum">Summary<textarea id="pSum" maxlength="600" placeholder="What was done, where, and the key figure"></textarea></label>
+      <label for="pSrc">Source link (required)<input type="url" id="pSrc" required pattern="https://.*" placeholder="https://"></label>
+      <div class="row"><button class="btn sm" type="submit">Publish entry</button><button class="btn ghost sm" type="button" id="pCancel">Cancel</button></div></form>
+    <div id="pList" class="stack" style="gap:10px"></div></div>`;
+  $("#pState").onchange=e=>{ S.projState=e.target.value; renderProjects(); };
+  if(canAdd){ $("#addP").onclick=()=>$("#pForm").hidden=false; $("#pCancel").onclick=()=>$("#pForm").hidden=true;
+    $("#pForm").onsubmit=async e=>{ e.preventDefault(); try{ await api.addProject({state:st,title:$("#pTitle").value.trim(),category:$("#pCat").value,summary:$("#pSum").value.trim(),source_url:$("#pSrc").value.trim()}); renderProjects(); toast("Entry published"); }catch(err){ toast(err.message); } }; }
+  let L=[]; try{ L=await api.projects(st); }catch(e){}
+  $("#pList").innerHTML = L.length? L.map(p=>`<div class="panel stack" style="gap:6px"><div class="row"><span class="pill g">${esc(p.category)}</span></div><b style="font-size:17px">${esc(p.title)}</b>${p.summary?`<p class="muted">${esc(p.summary)}</p>`:""}<div class="row"><a href="${esc(p.source_url)}" target="_blank" rel="noopener">View source</a>${canAdd?`<button class="btn ghost sm" data-del="${p.id}">Remove</button>`:""}</div></div>`).join("") : `<div class="empty">No entries for ${esc(st)} yet.${canAdd?" Add the first one with its source link.":" Your State Coordinator adds verified entries here."}</div>`;
+  $("#pList").querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{ await api.deleteProject(+b.dataset.del); renderProjects(); });
+}
+
+/* ═════════════════════════ ADMIN ═════════════════════════ */
+async function renderAdmin(){
+  const me=S.me; if(!isManager(me)) return go("map");
+  const canStates = me.role==="admin"||me.role==="national"; const st = S.adminState || me.state;
+  $("#view").innerHTML = `<div class="stack" style="gap:20px">
+    <div><div class="eyebrow">${ROLE_LABEL[me.role]}</div><h2>Coordinator desk</h2></div>
+    <div class="panel stack"><div class="row" style="justify-content:space-between"><h3>Waiting for approval</h3><span class="pill w" id="pendN">…</span></div>
+      <p class="small muted">People who join without an invite link land here. Check they're genuine before approving.</p><div id="pend"></div></div>
+    <div class="panel stack"><div class="row" style="justify-content:space-between;align-items:flex-end"><div><h3>Appoint coordinators</h3><p class="small muted">Ranked by recruits, door-to-door sign-up, outings attended and chat activity.</p></div>
+      ${canStates?`<select id="aState" style="max-width:220px" aria-label="State">${STATES.map(s=>`<option ${s===st?"selected":""}>${s}</option>`).join("")}</select>`:`<span class="pill">${esc(me.state)}</span>`}</div>
+      <div id="cands" class="scroll"></div></div></div>`;
+  if(canStates) $("#aState").onchange=e=>{ S.adminState=e.target.value; renderAdmin(); };
+  try{ const P=await api.pending(); $("#pendN").textContent=`${P.length} waiting`;
+    $("#pend").innerHTML = P.length? `<div class="scroll"><table><thead><tr><th>Name</th><th>Profession</th><th>Area</th><th>Phone</th><th></th></tr></thead><tbody>${P.map(p=>`<tr><td><b>${esc(p.full_name)}</b></td><td>${esc(p.profession)}</td><td class="small">${esc(p.ward)}, ${esc(p.lga)}, ${esc(p.state)}</td><td class="small num">${esc(p.member_private?.phone||"")}</td><td><div class="row" style="flex-wrap:nowrap"><button class="btn sm" data-ok="${p.id}">Approve</button><button class="btn ghost sm" data-no="${p.id}">Reject</button></div></td></tr>`).join("")}</tbody></table></div>` : `<div class="empty">Nobody is waiting. New sign-ups without an invite will appear here.</div>`;
+    $("#pend").querySelectorAll("[data-ok]").forEach(b=>b.onclick=async()=>{ await api.setStatus(b.dataset.ok,"approved"); toast("Approved"); renderAdmin(); });
+    $("#pend").querySelectorAll("[data-no]").forEach(b=>b.onclick=async()=>{ await api.setStatus(b.dataset.no,"rejected"); toast("Rejected"); renderAdmin(); }); }catch(e){ $("#pend").innerHTML=`<div class="err">${esc(e.message)}</div>`; }
+  const roles = canStates ? ["member","ward","lga","state","national"] : ["member","ward","lga"];
+  try{ const C=await api.candidates(canStates?st:me.state);
+    $("#cands").innerHTML = C.length? `<table><thead><tr><th>Member</th><th>Area</th><th class="n">Recruits</th><th class="n">Outings</th><th>Door-to-door</th><th>Role</th></tr></thead><tbody>${C.map(c=>`<tr><td><b>${esc(c.full_name)}</b><div class="small muted">${esc(c.profession||"")}</div></td><td class="small">${esc(c.ward)}, ${esc(c.lga)}</td><td class="n">${fmt(c.recruits)}</td><td class="n">${fmt(c.outings)}</td><td>${c.canvass?'<span class="pill g">Yes</span>':'<span class="small muted">No</span>'}</td><td><select data-role="${c.id}" aria-label="Role for ${esc(c.full_name)}" ${c.role==="admin"?"disabled":""}>${(c.role==="admin"?["admin"]:roles).map(r=>`<option value="${r}" ${r===c.role?"selected":""}>${ROLE_LABEL[r]}</option>`).join("")}</select></td></tr>`).join("")}</tbody></table>` : `<div class="empty">No approved members in this state yet.</div>`;
+    $("#cands").querySelectorAll("[data-role]").forEach(s=>s.onchange=async()=>{ try{ await api.setRole(s.dataset.role,s.value); toast(`Now ${ROLE_LABEL[s.value]}`); }catch(err){ toast(err.message); } }); }catch(e){ $("#cands").innerHTML=`<div class="err">${esc(e.message)}</div>`; }
+}
+
+boot();
+</script>
+
+</body>
+</html>
