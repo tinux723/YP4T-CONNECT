@@ -242,6 +242,7 @@ function makeDemo(){
   const db={ members:[], messages:[], outings:[], rsvps:[], projects:[], me:null, nextId:1 };
   for(let i=0;i<2480;i++) db.members.push(mk(i, now - rnd()*60*86400e3));
   db.members.forEach((m,i)=>{ if(i>40 && rnd()<.55) m.referred_by = db.members[Math.floor(rnd()*40)].id; });
+  db.supporters=[]; { const SN=["Mama Ada Okeke","Baba Musa Danladi","Iya Bisi Alao","Mallam Sani Bello","Mama Ngozi Eze","Alhaji Garba Yusuf","Mrs Funmi Ojo","Mr Emeka Obi"]; for(let i=0;i<180;i++){ const a=db.members[Math.floor(rnd()*60)]; db.supporters.push({id:100000+i,added_by:a.id,full_name:pick(SN),phone:rnd()<.6?"080"+Math.floor(10000000+rnd()*89999999):null,state:a.state,lga:a.lga,ward:a.ward,polling_unit:rnd()<.5?"PU 00"+(1+Math.floor(rnd()*9)):null,has_pvc:rnd()<.85,consent:true,created_at:new Date(now-rnd()*20*86400e3).toISOString()}); } }
   ["I M Voting President Tinubu 2027","90f5b19f78518535520","Elijah Abraham"].forEach((w,k)=>{ const x=db.members[50+k]; x.ward=w; if(k===2) x.full_name="Elijah Abraham"; });
   for(let i=0;i<14;i++) db.members.push({...mk(5000+i, now-rnd()*86400e3), status:"pending", referred_by:null});
   // Placeholder coordinators (replace with real people in the live app)
@@ -284,6 +285,11 @@ function makeDemo(){
     async myRecruits(){ return db.members.filter(m=>m.referred_by===db.me).length; },
     async myTeam(){ return db.members.filter(m=>m.referred_by===db.me&&m.status!=="rejected").map(m=>({...m,recruits:db.members.filter(x=>x.referred_by===m.id&&x.status==="approved").length})).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)); },
     async supporters(){ return (db.supporters||[]).filter(x=>x.added_by===db.me).slice().reverse(); },
+    async allSupporters(){ const u=me(); return (db.supporters||[]).filter(x=>manages(u,x)||x.added_by===db.me).map(x=>({...x,members:{full_name:(db.members.find(m=>m.id===x.added_by)||{}).full_name||""}})).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)); },
+    async publicSupporterTotal(){ return (db.supporters||[]).length; },
+    async recruiterBoard(state){ const wk=Date.now()-7*86400e3, o=new Map(), f=new Map(); const inc=(M,k,t)=>{ const r=M.get(k)||{n:0,n7:0}; r.n++; if(new Date(t)>wk) r.n7++; M.set(k,r); };
+      db.members.forEach(m=>{ if(m.referred_by&&m.status==="approved") inc(o,m.referred_by,m.created_at); }); (db.supporters||[]).forEach(x=>inc(f,x.added_by,x.created_at));
+      return db.members.filter(m=>m.status==="approved"&&(o.has(m.id)||f.has(m.id))&&(!state||m.state===state)).map(m=>{ const a=o.get(m.id)||{n:0,n7:0}, b=f.get(m.id)||{n:0,n7:0}; return {member_id:m.id,display_name:shortName(m.full_name),profession:m.profession,state:m.state,lga:m.lga,photo_url:m.photo_url,role:m.role,online:a.n,offline:b.n,online_7d:a.n7,offline_7d:b.n7,total:a.n+b.n}; }).sort((x,y)=>y.total-x.total||(y.online_7d+y.offline_7d)-(x.online_7d+x.offline_7d)).slice(0,100); },
     async addSupporter(p){ db.supporters=db.supporters||[]; db.supporters.push({...p,id:db.nextId++,added_by:db.me,full_name:titleCase(p.full_name),ward:titleCase(p.ward),created_at:new Date().toISOString()}); },
     async deleteSupporter(id){ db.supporters=(db.supporters||[]).filter(x=>x.id!==id); },
     async supporterStats(){ const m=new Map(); for(const x of db.supporters||[]){ const k=x.state+"|"+x.lga+"|"+x.ward; const r=m.get(k)||{state:x.state,lga:x.lga,ward:x.ward,supporters:0,pvc:0}; r.supporters++; if(x.has_pvc) r.pvc++; m.set(k,r);} return [...m.values()]; },
@@ -323,7 +329,10 @@ function makeLive(){
   return {
     mode:"live",
     async init(){
-      await new Promise((res,rej)=>{ const s=document.createElement("script"); s.src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"; s.onload=res; s.onerror=()=>rej(new Error("Could not load the database library. Check your internet connection.")); document.head.appendChild(s); });
+      const loadJs = src => new Promise((res,rej)=>{ const s=document.createElement("script"); s.src=src; s.onload=res; s.onerror=rej; document.head.appendChild(s); });
+      // Load the database library from our own site first (works on networks that block CDNs), then fall back to the CDNs
+      let ok=false; for(const src of ["supabase.min.js","https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js","https://unpkg.com/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"]){ try{ await loadJs(src); if(window.supabase){ ok=true; break; } }catch(e){} }
+      if(!ok) throw new Error("Could not connect. Check your internet connection, or try another network or Wi-Fi.");
       sb = window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY);
       const {data} = await sb.auth.getSession(); uid = data.session?.user?.id || null;
       sb.auth.onAuthStateChange((_e, s)=>{ uid = s?.user?.id || null; });
@@ -356,6 +365,9 @@ function makeLive(){
     async topRecruiters(){ return must(await sb.rpc("top_recruiters")) || []; },
     async myTeam(){ return must(await sb.rpc("my_team")) || []; },
     async myRecruits(){ try{ return (await this.myTeam()).length; }catch(e){ const {count}=await sb.from("members").select("id",{count:"exact",head:true}).eq("referred_by",uid); return count||0; } },
+    async allSupporters(){ let all=[], from=0; for(;;){ const r=must(await sb.from("supporters").select("*, members(full_name)").order("created_at",{ascending:false}).range(from,from+999)); all=all.concat(r||[]); if(!r||r.length<1000||all.length>=50000) break; from+=1000; } return all; },
+    async publicSupporterTotal(){ try{ return must(await sb.rpc("public_supporter_total")); }catch(e){ return 0; } },
+    async recruiterBoard(state){ return must(await sb.rpc("recruiter_board",{p_state:state||null})) || []; },
     async supporters(){ return must(await sb.from("supporters").select("*").eq("added_by",uid).order("created_at",{ascending:false}).limit(1000)) || []; },
     async addSupporter(p){ must(await sb.from("supporters").insert(p)); },
     async deleteSupporter(id){ must(await sb.from("supporters").delete().eq("id",id)); },
@@ -454,7 +466,7 @@ async function renderLanding(){
       <h1>Young professionals.<br><span class="g">One ward</span> at a time.</h1>
       <p style="font-size:18px;max-width:52ch">Join the Young Professionals for Tinubu network. Get your membership card, meet members in your ward, and join the door-to-door campaign before the presidential election on <b>16 January 2027</b>.</p>
       <div class="sunrise" style="max-width:420px"></div>
-      <div><div class="counter num" id="landCount">…</div><div class="eyebrow">young professionals have joined</div></div>
+      <div><div class="counter num" id="landCount">…</div><div class="eyebrow">young professionals have joined</div><div class="small muted" id="landSup" style="margin-top:4px"></div></div>
     </div>
     <div class="panel stack" id="authBox"></div>
   </section>
@@ -472,7 +484,7 @@ async function renderLanding(){
     if(inv&&bx) bx.innerHTML=`<div class="leader" style="display:inline-flex"><span>${avatar(inv.photo_url,inv.display_name,"lg")}</span><div><div class="eyebrow">You were invited by</div><b style="font-size:19px">${esc(inv.display_name)}</b><div class="small muted">${esc(inv.profession)} · ${esc(inv.lga)}, ${esc(inv.state)}</div><div class="small" style="color:var(--green);font-weight:700;margin-top:2px">Join their team. You'll be approved straight away.</div></div></div>`; }catch(e){} }
   try{ const L=await api.leaders(); if(L.length) $("#leadersBox").innerHTML=`<div class="eyebrow" style="margin:10px 0 8px">Our coordinators</div><div class="leaders">${L.map(l=>`<div class="leader">${avatar(l.photo_url,l.full_name,"lg")}<div><b>${esc(l.full_name)}</b><div class="small muted">${ROLE_LABEL[l.role]}${l.role==="state"?" · "+esc(l.state):""}</div></div></div>`).join("")}</div>`; }catch(e){}
 }
-async function updateLandingCount(){ const el=$("#landCount"); if(!el) return; try{ el.textContent=fmt(await api.publicTotal()); }catch(e){ el.textContent="—"; } }
+async function updateLandingCount(){ const el=$("#landCount"); if(!el) return; api.publicSupporterTotal().then(n=>{ const x=$("#landSup"); if(x&&Number(n)) x.innerHTML=`+ <b>${fmt(n)}</b> offline supporters registered by members`; }).catch(()=>{}); try{ el.textContent=fmt(await api.publicTotal()); }catch(e){ el.textContent="—"; } }
 function ngPhone(v){ let d=String(v||"").replace(/\D/g,""); if(d.startsWith("234")) d=d.slice(3); if(d.startsWith("0")) d=d.slice(1); return /^[789][01]\d{8}$/.test(d) ? "+234"+d : null; }
 function prettyPhone(p){ const d=String(p||"").replace(/\D/g,""); return d.startsWith("234") ? "0"+d.slice(3) : p; }
 // Ward check: catches slogans, codes and names typed into the Ward box
@@ -607,7 +619,7 @@ async function renderMap(){
   $("#view").innerHTML = `
   <div class="stack" style="gap:20px">
     <div class="row" style="justify-content:space-between;align-items:flex-end">
-      <div><div class="eyebrow">Live · Young Professionals for Tinubu</div><div class="counter num" id="total">${fmt(S.total)}</div><div class="muted">approved members across Nigeria</div></div>
+      <div><div class="eyebrow">Live · Young Professionals for Tinubu</div><div class="counter num" id="total">${fmt(S.total)}</div><div class="muted">approved members across Nigeria</div><div class="small" id="reach" style="margin-top:6px"></div></div>
       <div class="stats3" style="min-width:min(100%,380px)" id="natStats"></div>
     </div>
     <div class="mapbox">
@@ -631,6 +643,7 @@ function renderMapData(flash){
   const byState=agg(S.stats, r=>r.state); const max=Math.max(1,...[...byState.values()].map(a=>a.members));
   const tot=agg(S.stats,()=>1).get(1)||{members:0,pvc:0,canvass:0};
   S.total = tot.members; $("#total").textContent=fmt(S.total);
+  { const sup=(S.sstats||[]).reduce((a,r)=>a+Number(r.supporters),0); const rc=$("#reach"); if(rc) rc.innerHTML = sup ? `+ <b>${fmt(sup)}</b> offline supporters · <b style="color:var(--green)">${fmt(S.total+sup)}</b> people in total` : ""; }
   $("#natStats").innerHTML = `<div class="stat"><b>${fmt(tot.pvc)}</b><span class="small muted">have PVCs</span></div><div class="stat"><b>${fmt(tot.canvass)}</b><span class="small muted">door-to-door</span></div><div class="stat"><b>${fmt((S.sstats||[]).reduce((a,r)=>a+Number(r.supporters),0))}</b><span class="small muted">offline supporters</span></div>`;
   tiles.innerHTML = Object.entries(TILES).map(([s,[c,x,y]])=>{ const n=byState.get(s)?.members||0; const p=n?Math.round(18+82*Math.sqrt(n/max)):0;
     const dark = p>55; return `<button class="tile ${s===S.selState?"sel":""} ${s===flash?"pulse":""}" style="grid-column:${x+1};grid-row:${y+1};background:color-mix(in oklab,var(--green) ${p}%,var(--tile0));color:${dark?"#fff":"var(--ink)"}" data-s="${esc(s)}" aria-label="${esc(s)}: ${n} members"><b>${c}</b><span>${fmt(n)}</span></button>`; }).join("");
@@ -890,18 +903,32 @@ function showDm(id,name){ const box=$("#dmBox"); box.hidden=false; box.innerHTML
 
 /* ═════════════════════════ RANKINGS ═════════════════════════ */
 async function renderRanks(){
-  const by=[...agg(S.stats,r=>r.state)].sort((a,b)=>b[1].members-a[1].members);
+  const sup=agg2(S.sstats||[]), by=[...agg(S.stats,r=>r.state)].map(([st,a])=>[st,a,sup.get(st)||{n:0,pvc:0}]);
+  (S.sstats||[]).forEach(r=>{ if(!by.find(x=>x[0]===r.state)) by.push([r.state,{members:0,pvc:0,canvass:0,new_7d:0},sup.get(r.state)]); });
+  by.sort((x,y)=>(y[1].members+y[2].n)-(x[1].members+x[2].n));
+  const rs = S.rankState ?? "";
   $("#view").innerHTML = `<div class="stack" style="gap:18px">
     <div><div class="eyebrow">Leaderboards</div><h2>Who's building fastest</h2></div>
-    <div class="grid2" style="align-items:start">
-      <div class="panel"><h3 style="margin-bottom:8px">States</h3><div class="scroll"><table><thead><tr><th>#</th><th>State</th><th class="n">Members</th><th class="n">This week</th><th class="n">PVC %</th></tr></thead><tbody>
-        ${by.map(([s,a],i)=>`<tr ${s===S.me.state?'style="background:var(--soft)"':""}><td class="num">${i+1}</td><td>${esc(s)}</td><td class="n">${fmt(a.members)}</td><td class="n">+${fmt(a.new_7d)}</td><td class="n">${a.members?Math.round(a.pvc/a.members*100):0}%</td></tr>`).join("")}</tbody></table></div></div>
-      <div class="panel"><h3 style="margin-bottom:8px">Top recruiters</h3><div id="recs"><div class="empty">Loading…</div></div>
-        <button class="btn sm" style="margin-top:12px" id="toCard">Get my invite link</button></div>
-    </div></div>`;
-  $("#toCard").onclick=()=>go("card");
-  try{ const R=await api.topRecruiters(); $("#recs").innerHTML = R.length? `<div class="scroll"><table><thead><tr><th>#</th><th>Member</th><th>Area</th><th class="n">Recruits</th></tr></thead><tbody>${R.map((r,i)=>`<tr><td class="num">${i+1}</td><td>${esc(r.first_name)}</td><td class="small">${esc(r.lga)}, ${esc(r.state)}</td><td class="n">${fmt(r.recruits)}</td></tr>`).join("")}</tbody></table></div>` : `<div class="empty">No referrals yet. Be the first.</div>`; }catch(e){ $("#recs").innerHTML=`<div class="empty">${esc(e.message)}</div>`; }
+    <div class="panel stack">
+      <div class="row" style="justify-content:space-between;align-items:flex-end"><div><h3>Top recruiters</h3><p class="small muted">Online: people who joined with their invite link. Offline: supporters they added on My Team. Total counts both.</p></div>
+        <select id="rState" style="max-width:220px" aria-label="State"><option value="">All states</option>${STATES.map(x=>`<option ${x===rs?"selected":""}>${x}</option>`).join("")}</select></div>
+      <div class="stats3" id="rTotals"></div>
+      <div id="recs" class="scroll"><div class="empty">Loading…</div></div>
+      <div class="row"><button class="btn sm" id="toTeam">Recruit on My Team</button><span class="small muted">Your row is highlighted.</span></div>
+    </div>
+    <div class="panel"><h3 style="margin-bottom:8px">States</h3><div class="scroll"><table><thead><tr><th>#</th><th>State</th><th class="n">Members</th><th class="n">Offline</th><th class="n">Total</th><th class="n">This week</th><th class="n">PVC %</th></tr></thead><tbody>
+      ${by.map(([st,a,f],i)=>`<tr ${st===S.me.state?'style="background:var(--soft)"':""}><td class="num">${i+1}</td><td>${esc(st)}</td><td class="n">${fmt(a.members)}</td><td class="n">${fmt(f.n)}</td><td class="n"><b>${fmt(a.members+f.n)}</b></td><td class="n">+${fmt(a.new_7d)}</td><td class="n">${(a.members+f.n)?Math.round((a.pvc+f.pvc)/(a.members+f.n)*100):0}%</td></tr>`).join("")}</tbody></table></div></div>
+  </div>`;
+  $("#toTeam").onclick=()=>go("team");
+  $("#rState").onchange=e=>{ S.rankState=e.target.value; renderRanks(); };
+  try{ const R=await api.recruiterBoard(rs||null);
+    const T=R.reduce((a,r)=>(a.on+=+r.online,a.off+=+r.offline,a.wk+=+r.online_7d + +r.offline_7d,a),{on:0,off:0,wk:0});
+    $("#rTotals").innerHTML=`<div class="stat"><b>${fmt(T.on)}</b><span class="small muted">recruited online</span></div><div class="stat"><b>${fmt(T.off)}</b><span class="small muted">added offline</span></div><div class="stat"><b>+${fmt(T.wk)}</b><span class="small muted">this week</span></div>`;
+    $("#recs").innerHTML = R.length ? `<table><thead><tr><th>#</th><th>Member</th><th>Area</th><th class="n">Online</th><th class="n">Offline</th><th class="n">This week</th><th class="n">Total</th></tr></thead><tbody>${R.map((r,i)=>`<tr ${r.member_id===S.me.id?'style="background:color-mix(in oklab,var(--green) 14%,transparent)"':""}><td class="num">${i<3?["🥇","🥈","🥉"][i]:i+1}</td><td><div class="row" style="gap:8px;flex-wrap:nowrap">${avatar(r.photo_url,r.display_name)}<div><b>${esc(r.display_name)}</b>${r.role&&r.role!=="member"?` <span class="pill g">${esc(ROLE_LABEL[r.role]||"")}</span>`:""}<div class="small muted">${esc(r.profession||"")}</div></div></div></td><td class="small">${esc(r.lga)}, ${esc(r.state)}</td><td class="n">${fmt(r.online)}</td><td class="n">${fmt(r.offline)}</td><td class="n">+${fmt(+r.online_7d + +r.offline_7d)}</td><td class="n"><b>${fmt(r.total)}</b></td></tr>`).join("")}</tbody></table>`
+      : `<div class="empty">No recruiting yet${rs?" in "+esc(rs):""}. Share your invite link or add offline supporters on My Team.</div>`;
+  }catch(e){ $("#recs").innerHTML=`<div class="err">${esc(e.message)}. Run records.sql in Supabase.</div>`; }
 }
+function agg2(rows){ const m=new Map(); for(const r of rows){ const a=m.get(r.state)||{n:0,pvc:0}; a.n+=+r.supporters; a.pvc+=+r.pvc; m.set(r.state,a); } return m; }
 
 /* ═════════════════════════ PROJECTS ═════════════════════════ */
 async function renderProjects(){
@@ -933,6 +960,9 @@ async function renderAdmin(){
     <div><div class="eyebrow">${ROLE_LABEL[me.role]}</div><h2>Coordinator desk</h2></div>
     ${canStates?`<div class="panel stack"><div><h3>Admin team</h3><p class="small muted">These people see everything: every state, approvals, phone numbers and offline supporters. ${isSuper?"Only you, the Super Admin, can add or remove them. Find the person below and set their role to <b>Admin / Secretary</b> or <b>National Coordinator</b>.":"Only the Super Admin can change this list."}</p></div><div id="adminTeam" class="people"></div></div>`:""}
     <div class="panel stack"><div class="row" style="justify-content:space-between"><div><h3>Coordinators</h3><p class="small muted">${canStates?"State, LGA and Ward Coordinators across Nigeria.":"Coordinators in your area."} To change someone's role, find them under Appoint coordinators below.</p></div><span class="pill g" id="coordN">…</span></div><div id="coordList" class="stack" style="gap:14px"></div></div>
+    <div class="panel stack"><div class="row" style="justify-content:space-between;align-items:flex-end"><div><h3>Offline supporters</h3><p class="small muted">Everyone members have added on My Team${canStates?", across Nigeria":", in your area"}. Phone numbers are private: don't share this list outside the coordinator team.</p></div>
+      <div class="row"><select id="oState" style="max-width:200px" aria-label="Filter offline supporters by state"><option value="">All states</option></select><input type="text" id="oFind" placeholder="Search name, ward, added by" style="max-width:240px" aria-label="Search offline supporters"><button class="btn sm ghost" id="oCsv">Download CSV</button></div></div>
+      <div class="stats3" id="oTotals" style="max-width:640px"></div><div id="oList" class="scroll"><div class="empty">Loading…</div></div></div>
     <div class="panel stack"><div class="row" style="justify-content:space-between"><div><h3>Wards to fix</h3><p class="small muted">Members whose ward looks wrong (a slogan, a code, or their own name). Correct the LGA and ward so they join the right ward team.</p></div><span class="pill w" id="fixN">…</span></div><div id="fixList" class="scroll"></div></div>
     <div class="panel stack"><div class="row" style="justify-content:space-between"><h3>Waiting for approval</h3><div class="row"><select id="pState" style="max-width:200px" aria-label="Filter waiting list by state"><option value="">All states</option></select><span class="pill w" id="pendN">…</span></div></div>
       <p class="small muted">People who join without an invite link land here. Check they're genuine before approving.</p><div id="pend"></div></div>
@@ -941,6 +971,20 @@ async function renderAdmin(){
       ${canStates?`<label for="aFind" style="max-width:420px">Find any member by name<input type="text" id="aFind" placeholder="Type at least 2 letters" autocomplete="off"></label>`:""}
       <div id="cands" class="scroll"></div></div></div>`;
   if(canStates){ api.adminTeam().then(T=>{ const b=$("#adminTeam"); if(b) b.innerHTML=T.map(t=>`<div class="person">${avatar(t.photo_url,t.full_name)}<div><div class="nm">${esc(t.full_name)}</div><div class="sub">${ROLE_LABEL[t.role]} · ${esc(t.state)}</div></div></div>`).join("")||`<div class="empty">Only you so far.</div>`; }).catch(e=>{ const b=$("#adminTeam"); if(b) b.innerHTML=`<div class="err">${esc(e.message)}. Run admin-team.sql in Supabase.</div>`; }); }
+  api.allSupporters().then(ALL=>{ const box=$("#oList"); if(!box) return;
+    const byS=ALL.reduce((a,x)=>(a[x.state]=(a[x.state]||0)+1,a),{}); const os=$("#oState");
+    os.innerHTML=`<option value="">All states (${ALL.length})</option>`+Object.keys(byS).sort().map(k=>`<option value="${esc(k)}">${esc(k)} (${byS[k]})</option>`).join("");
+    let cur=[];
+    const draw=()=>{ const st=os.value, q=$("#oFind").value.trim().toLowerCase();
+      cur=ALL.filter(x=>(!st||x.state===st)&&(!q||(x.full_name+" "+x.ward+" "+x.lga+" "+(x.members?.full_name||"")).toLowerCase().includes(q)));
+      const wk=Date.now()-7*86400e3;
+      $("#oTotals").innerHTML=`<div class="stat"><b>${fmt(cur.length)}</b><span class="small muted">offline supporters</span></div><div class="stat"><b>${fmt(cur.filter(x=>x.has_pvc).length)}</b><span class="small muted">have PVCs</span></div><div class="stat"><b>+${fmt(cur.filter(x=>new Date(x.created_at)>wk).length)}</b><span class="small muted">this week</span></div>`;
+      box.innerHTML = cur.length ? `<table><thead><tr><th>Name</th><th>Phone</th><th>Area</th><th>Polling unit</th><th>PVC</th><th>Added by</th><th>Added</th></tr></thead><tbody>${cur.slice(0,500).map(x=>`<tr><td><b>${esc(x.full_name)}</b></td><td class="small num">${esc(x.phone?prettyPhone(x.phone):"")}</td><td class="small">${esc(x.ward)}, ${esc(x.lga)}, <b>${esc(x.state)}</b></td><td class="small">${esc(x.polling_unit||"")}</td><td>${x.has_pvc?'<span class="pill g">Yes</span>':'<span class="pill w">No</span>'}</td><td class="small">${esc(x.members?.full_name||"")}</td><td class="small muted">${ago(x.created_at)}</td></tr>`).join("")}</tbody></table>${cur.length>500?`<p class="small muted">Showing the newest 500. Download the CSV for the full list.</p>`:""}`
+        : `<div class="empty">No offline supporters${st?" in "+esc(st):""} yet.</div>`; };
+    os.onchange=draw; let t; $("#oFind").oninput=()=>{ clearTimeout(t); t=setTimeout(draw,250); };
+    $("#oCsv").onclick=()=>{ const cell=v=>`"${String(v??"").replace(/"/g,'""')}"`; const rows=[["Name","Phone","State","LGA","Ward","Polling unit","Has PVC","Added by","Added on"]].concat(cur.map(x=>[x.full_name,x.phone?prettyPhone(x.phone):"",x.state,x.lga,x.ward,x.polling_unit||"",x.has_pvc?"Yes":"No",x.members?.full_name||"",new Date(x.created_at).toLocaleString("en-NG")]));
+      const blob=new Blob(["\ufeff"+rows.map(r=>r.map(cell).join(",")).join("\r\n")],{type:"text/csv"}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`YP4T-offline-supporters-${os.value||"all-states"}.csv`; document.body.appendChild(a); a.click(); a.remove(); };
+    draw(); }).catch(e=>{ const box=$("#oList"); if(box) box.innerHTML=`<div class="err">${esc(e.message)}</div>`; });
   const loadFix=()=>api.areaMembers().then(M=>{ const box=$("#fixList"); if(!box) return; const B=M.filter(x=>wardProblem(x.ward,x.full_name)); $("#fixN").textContent=`${B.length} to fix`;
     box.innerHTML = B.length ? `<table><thead><tr><th>Member</th><th>State</th><th>LGA</th><th>Ward</th><th></th></tr></thead><tbody>${B.slice(0,300).map(x=>`<tr data-row="${x.id}"><td><b>${esc(x.full_name)}</b><div class="small muted">Was: "${esc(x.ward)}"</div></td><td class="small">${esc(x.state)}</td><td><select data-lga aria-label="LGA for ${esc(x.full_name)}" style="min-width:150px">${lgaOptions(x.state,x.lga)}</select></td><td><input type="text" data-ward maxlength="60" placeholder="Correct ward" aria-label="Ward for ${esc(x.full_name)}" style="min-width:160px"></td><td><button class="btn sm" data-save="${x.id}">Save</button></td></tr>`).join("")}</tbody></table>${B.length>300?`<p class="small muted">Showing the first 300.</p>`:""}`
       : `<div class="empty">All wards look fine.</div>`;
