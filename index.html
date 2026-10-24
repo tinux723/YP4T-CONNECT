@@ -242,6 +242,7 @@ function makeDemo(){
   const db={ members:[], messages:[], outings:[], rsvps:[], projects:[], me:null, nextId:1 };
   for(let i=0;i<2480;i++) db.members.push(mk(i, now - rnd()*60*86400e3));
   db.members.forEach((m,i)=>{ if(i>40 && rnd()<.55) m.referred_by = db.members[Math.floor(rnd()*40)].id; });
+  ["I M Voting President Tinubu 2027","90f5b19f78518535520","Elijah Abraham"].forEach((w,k)=>{ const x=db.members[50+k]; x.ward=w; if(k===2) x.full_name="Elijah Abraham"; });
   for(let i=0;i<14;i++) db.members.push({...mk(5000+i, now-rnd()*86400e3), status:"pending", referred_by:null});
   // Placeholder coordinators (replace with real people in the live app)
   const nat=db.members[3]; nat.role="national"; nat.full_name="National Coordinator"; nat.profession="Add name and photo";
@@ -304,6 +305,9 @@ function makeDemo(){
     async pending(){ const u=me(); return db.members.filter(m=>m.status==="pending"&&manages(u,m)).map(m=>({...m,member_private:{phone:"080"+String(m.id.length*1234567).slice(0,8),email:null}})); },
     async setStatus(id,status){ const m=db.members.find(x=>x.id===id); if(m) m.status=status; },
     async setRole(id,role){ const m=db.members.find(x=>x.id===id); if(m) m.role=role; },
+    async areaMembers(){ return db.members.filter(m=>m.status==="approved"&&manages(me(),m)); },
+    async setArea(id,lga,ward){ const m=db.members.find(x=>x.id===id); if(m){ m.lga=lga; m.ward=titleCase(ward); } },
+    async coordinators(){ return db.members.filter(m=>["state","lga","ward"].includes(m.role)&&m.status==="approved"); },
     async adminTeam(){ return db.members.filter(m=>ADMIN_ROLES.includes(m.role)&&m.status==="approved"); },
     async adminFind(q){ q=q.toLowerCase(); const c=new Map(); db.members.forEach(m=>{ if(m.referred_by) c.set(m.referred_by,(c.get(m.referred_by)||0)+1); }); return db.members.filter(m=>m.status==="approved"&&(m.full_name+" "+m.profession).toLowerCase().includes(q)).slice(0,30).map(m=>({...m,recruits:c.get(m.id)||0,outings:0,messages:0})); },
     async candidates(state){ const c=new Map(); db.members.forEach(m=>{ if(m.referred_by) c.set(m.referred_by,(c.get(m.referred_by)||0)+1); });
@@ -377,6 +381,9 @@ function makeLive(){
     async setStatus(id,status){ must(await sb.from("members").update({status}).eq("id",id)); },
     async setRole(id,role){ must(await sb.from("members").update({role}).eq("id",id)); },
     async adminTeam(){ return must(await sb.rpc("admin_team")) || []; },
+    async areaMembers(){ let all=[], from=0; for(;;){ const r=must(await sb.from("members").select("id,full_name,profession,state,lga,ward").eq("status","approved").order("created_at").range(from,from+999)); all=all.concat(r||[]); if(!r||r.length<1000||all.length>=20000) break; from+=1000; } return all; },
+    async setArea(id,lga,ward){ must(await sb.from("members").update({lga,ward}).eq("id",id)); },
+    async coordinators(){ return must(await sb.from("members").select("id,full_name,profession,role,state,lga,ward,photo_url").eq("status","approved").in("role",["state","lga","ward"]).order("state").limit(2000)) || []; },
     async adminFind(q){ return must(await sb.rpc("admin_find",{q})) || []; },
     async candidates(state){ return must(await sb.rpc("coordinator_candidates",{p_state:state})) || []; }
   };
@@ -468,6 +475,19 @@ async function renderLanding(){
 async function updateLandingCount(){ const el=$("#landCount"); if(!el) return; try{ el.textContent=fmt(await api.publicTotal()); }catch(e){ el.textContent="—"; } }
 function ngPhone(v){ let d=String(v||"").replace(/\D/g,""); if(d.startsWith("234")) d=d.slice(3); if(d.startsWith("0")) d=d.slice(1); return /^[789][01]\d{8}$/.test(d) ? "+234"+d : null; }
 function prettyPhone(p){ const d=String(p||"").replace(/\D/g,""); return d.startsWith("234") ? "0"+d.slice(3) : p; }
+// Ward check: catches slogans, codes and names typed into the Ward box
+function wardProblem(ward, name){
+  const w=String(ward||"").trim(), lw=w.toLowerCase();
+  if(w.length<2) return "Type the name of your ward.";
+  if(/tinubu|voting|vote|president|renewed|hope|2027|yp4t|apc|bat\b/.test(lw)) return "That looks like a slogan, not a ward. Type the ward name from your PVC, e.g. \"Karu Ward\".";
+  if(/[@]|https?:|www\./.test(lw)) return "Type the ward name only, not an email or link.";
+  if(/\d{5,}/.test(w) || /^[0-9a-f]{8,}$/i.test(w.replace(/\s/g,""))) return "That looks like a code or number. Type the ward name from your PVC, e.g. \"Ward 04\" or \"Ikate\".";
+  if(w.length>60) return "That's too long for a ward name.";
+  const nm=String(name||"").toLowerCase().split(/\s+/).filter(x=>x.length>2);
+  const wt=lw.replace(/\bward\b/g,"").split(/\s+/).filter(Boolean);
+  if(nm.length && wt.length && wt.every(t=>nm.includes(t))) return "That looks like a person's name. Type the ward name from the PVC, e.g. \"Karu Ward\".";
+  return null;
+}
 const PHONE_ON = () => !LIVE || CFG.PHONE_SIGNIN;
 function renderAuthBox(step, id="", mode, method){
   const box=$("#authBox"); if(!box) return;
@@ -554,6 +574,7 @@ function renderJoin(edit=false){
       let photo_url = null;
       if(S.photoBlob) photo_url = await api.uploadPhoto(S.photoBlob);
       const phone=$("#phone").value.replace(/[^\d+]/g,""); if(phone.length<10) throw new Error("Enter a valid phone number.");
+      const wp=wardProblem($("#ward").value, $("#fullName").value); if(wp){ $("#ward").focus(); throw new Error(wp); }
       await api.saveProfile({ full_name:titleCase($("#fullName").value), profession:titleCase($("#profession").value), phone, email,
         state:$("#state").value, lga:$("#lga").value, ward:titleCase($("#ward").value), has_pvc:$("#pvc").checked, canvass:$("#canvass").checked, listed:$("#listed").checked, photo_url });
       S.photoBlob=null; S.tab = edit ? "card" : "card";
@@ -769,6 +790,7 @@ async function renderTeam(){
   $("#supForm").onsubmit=async e=>{ e.preventDefault(); const b=e.submitter; $("#supErr").textContent="";
     const ph=$("#sPhone").value.trim(); const phone=ph?ngPhone(ph):null;
     if(ph && !phone){ $("#supErr").textContent="Enter a Nigerian mobile number, or leave it empty."; return; }
+    const swp=wardProblem($("#sWard").value, $("#sName").value); if(swp){ $("#supErr").textContent=swp; $("#sWard").focus(); return; }
     b.disabled=true;
     try{ await api.addSupporter({ full_name:$("#sName").value.trim(), phone, state:$("#sState").value, lga:$("#sLga").value, ward:$("#sWard").value.trim(), polling_unit:$("#sPU").value.trim()||null, has_pvc:$("#sPvc").checked, consent:$("#sConsent").checked });
       $("#sName").value=""; $("#sPhone").value=""; $("#sPU").value=""; $("#sConsent").checked=false; $("#sPvc").checked=true; toast("Supporter added"); loadSup(); loadStats(); }
@@ -786,9 +808,11 @@ async function renderTeam(){
 }
 
 async function renderWard(){
+  setTimeout(()=>$("#fixMyWard")?.addEventListener("click",()=>renderJoin(true)),0);
   const m=S.me; const rows=S.stats.filter(r=>r.state===m.state&&r.lga===m.lga&&String(r.ward).toLowerCase()===m.ward.toLowerCase());
   const t=agg(rows,()=>1).get(1)||{members:0,pvc:0,canvass:0};
   $("#view").innerHTML = `<div class="stack" style="gap:20px">
+    ${wardProblem(m.ward,m.full_name)?`<div class="panel row" style="border-color:var(--warn);background:var(--warn-bg)"><span style="flex:1;min-width:200px;color:var(--warn);font-weight:600">Your ward looks incorrect ("${esc(m.ward)}"). Fix it so you join the right ward team.</span><button class="btn sm" id="fixMyWard">Fix my ward</button></div>`:""}
     <div><div class="eyebrow">${esc(m.lga)} · ${esc(m.state)}</div><h2>${esc(m.ward)} team</h2></div>
     <div class="stats3" style="max-width:520px"><div class="stat"><b>${fmt(t.members)}</b><span class="small muted">members</span></div><div class="stat"><b>${fmt(t.pvc)}</b><span class="small muted">have PVCs</span></div><div class="stat"><b>${fmt(t.canvass)}</b><span class="small muted">door-to-door</span></div></div>
     <div class="grid2" style="align-items:start">
@@ -908,6 +932,8 @@ async function renderAdmin(){
   $("#view").innerHTML = `<div class="stack" style="gap:20px">
     <div><div class="eyebrow">${ROLE_LABEL[me.role]}</div><h2>Coordinator desk</h2></div>
     ${canStates?`<div class="panel stack"><div><h3>Admin team</h3><p class="small muted">These people see everything: every state, approvals, phone numbers and offline supporters. ${isSuper?"Only you, the Super Admin, can add or remove them. Find the person below and set their role to <b>Admin / Secretary</b> or <b>National Coordinator</b>.":"Only the Super Admin can change this list."}</p></div><div id="adminTeam" class="people"></div></div>`:""}
+    <div class="panel stack"><div class="row" style="justify-content:space-between"><div><h3>Coordinators</h3><p class="small muted">${canStates?"State, LGA and Ward Coordinators across Nigeria.":"Coordinators in your area."} To change someone's role, find them under Appoint coordinators below.</p></div><span class="pill g" id="coordN">…</span></div><div id="coordList" class="stack" style="gap:14px"></div></div>
+    <div class="panel stack"><div class="row" style="justify-content:space-between"><div><h3>Wards to fix</h3><p class="small muted">Members whose ward looks wrong (a slogan, a code, or their own name). Correct the LGA and ward so they join the right ward team.</p></div><span class="pill w" id="fixN">…</span></div><div id="fixList" class="scroll"></div></div>
     <div class="panel stack"><div class="row" style="justify-content:space-between"><h3>Waiting for approval</h3><div class="row"><select id="pState" style="max-width:200px" aria-label="Filter waiting list by state"><option value="">All states</option></select><span class="pill w" id="pendN">…</span></div></div>
       <p class="small muted">People who join without an invite link land here. Check they're genuine before approving.</p><div id="pend"></div></div>
     <div class="panel stack"><div class="row" style="justify-content:space-between;align-items:flex-end"><div><h3>Appoint coordinators</h3><p class="small muted">Ranked by recruits, door-to-door sign-up, outings attended and chat activity.</p></div>
@@ -915,6 +941,18 @@ async function renderAdmin(){
       ${canStates?`<label for="aFind" style="max-width:420px">Find any member by name<input type="text" id="aFind" placeholder="Type at least 2 letters" autocomplete="off"></label>`:""}
       <div id="cands" class="scroll"></div></div></div>`;
   if(canStates){ api.adminTeam().then(T=>{ const b=$("#adminTeam"); if(b) b.innerHTML=T.map(t=>`<div class="person">${avatar(t.photo_url,t.full_name)}<div><div class="nm">${esc(t.full_name)}</div><div class="sub">${ROLE_LABEL[t.role]} · ${esc(t.state)}</div></div></div>`).join("")||`<div class="empty">Only you so far.</div>`; }).catch(e=>{ const b=$("#adminTeam"); if(b) b.innerHTML=`<div class="err">${esc(e.message)}. Run admin-team.sql in Supabase.</div>`; }); }
+  const loadFix=()=>api.areaMembers().then(M=>{ const box=$("#fixList"); if(!box) return; const B=M.filter(x=>wardProblem(x.ward,x.full_name)); $("#fixN").textContent=`${B.length} to fix`;
+    box.innerHTML = B.length ? `<table><thead><tr><th>Member</th><th>State</th><th>LGA</th><th>Ward</th><th></th></tr></thead><tbody>${B.slice(0,300).map(x=>`<tr data-row="${x.id}"><td><b>${esc(x.full_name)}</b><div class="small muted">Was: "${esc(x.ward)}"</div></td><td class="small">${esc(x.state)}</td><td><select data-lga aria-label="LGA for ${esc(x.full_name)}" style="min-width:150px">${lgaOptions(x.state,x.lga)}</select></td><td><input type="text" data-ward maxlength="60" placeholder="Correct ward" aria-label="Ward for ${esc(x.full_name)}" style="min-width:160px"></td><td><button class="btn sm" data-save="${x.id}">Save</button></td></tr>`).join("")}</tbody></table>${B.length>300?`<p class="small muted">Showing the first 300.</p>`:""}`
+      : `<div class="empty">All wards look fine.</div>`;
+    box.querySelectorAll("[data-save]").forEach(b=>b.onclick=async()=>{ const tr=b.closest("tr"), x=B.find(y=>y.id===b.dataset.save); const lga=tr.querySelector("[data-lga]").value, ward=titleCase(tr.querySelector("[data-ward]").value);
+      if(!lga){ toast("Choose the LGA"); return; } const wp=wardProblem(ward,x.full_name); if(wp){ toast(wp); return; }
+      b.disabled=true; try{ await api.setArea(x.id,lga,ward); toast("Ward fixed"); loadFix(); loadStats(); }catch(e){ toast(e.message); b.disabled=false; } }); }).catch(e=>{ const box=$("#fixList"); if(box) box.innerHTML=`<div class="err">${esc(e.message)}</div>`; });
+  loadFix();
+  api.coordinators().then(C=>{ const box=$("#coordList"); if(!box) return; $("#coordN").textContent=`${C.length} appointed`;
+    const order={state:0,lga:1,ward:2}; const by={}; C.forEach(c=>(by[c.state]=by[c.state]||[]).push(c));
+    box.innerHTML = C.length ? Object.keys(by).sort().map(st=>`<div><div class="eyebrow" style="margin-bottom:6px">${esc(st)} · ${by[st].length}</div><div class="people" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr))">${by[st].sort((a,b)=>order[a.role]-order[b.role]||a.lga.localeCompare(b.lga)).map(c=>`<div class="person">${avatar(c.photo_url,c.full_name)}<div><div class="nm">${esc(c.full_name)}</div><div class="sub">${ROLE_LABEL[c.role]}${c.role!=="state"?" · "+esc(c.role==="ward"?(c.ward+", "+c.lga):c.lga):""}</div></div>${c.id!==me.id?`<button class="btn sm ghost" data-dm="${c.id}" data-n="${esc(c.full_name)}">Message</button>`:""}</div>`).join("")}</div></div>`).join("")
+      : `<div class="empty">No State, LGA or Ward Coordinators yet. Appoint them below.</div>`;
+    box.querySelectorAll("[data-dm]").forEach(b=>b.onclick=()=>openDm(b.dataset.dm,b.dataset.n)); }).catch(e=>{ const box=$("#coordList"); if(box) box.innerHTML=`<div class="err">${esc(e.message)}</div>`; });
   if(canStates) $("#aState").onchange=e=>{ S.adminState=e.target.value; renderAdmin(); };
   try{ const ALL=await api.pending();
     const byS=ALL.reduce((a,p)=>(a[p.state]=(a[p.state]||0)+1,a),{});
