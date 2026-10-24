@@ -202,7 +202,8 @@ const TILES = {
   "Bayelsa":["BY",1,6],"Rivers":["RI",2,6]
 };
 const PROFESSIONS = ["Accountant","Architect","Banker","Civil Servant","Data Analyst","Doctor","Engineer","Entrepreneur","Journalist","Lawyer","Lecturer","Nurse","Pharmacist","Software Developer","Student","Surveyor","Teacher","Trader","Designer","Content Creator","Marketer","Farmer","Real Estate","Oil & Gas"];
-const ROLE_LABEL = {member:"Member",ward:"Ward Coordinator",lga:"LGA Coordinator",state:"State Coordinator",national:"National Coordinator",admin:"Super Admin"};
+const ROLE_LABEL = {member:"Member",ward:"Ward Coordinator",lga:"LGA Coordinator",state:"State Coordinator",national:"National Coordinator",secretary:"Admin / Secretary",admin:"Super Admin"};
+const ADMIN_ROLES=["admin","national","secretary"];
 const CFG = window.YP4T_CONFIG || {};
 const LIVE = !!(CFG.SUPABASE_URL && CFG.SUPABASE_ANON_KEY);
 
@@ -260,12 +261,17 @@ function makeDemo(){
     async session(){ return db.me ? {user:{id:db.me,email:ls.get("yp4t-demo-email")||"you@example.com"}} : (ls.get("yp4t-demo-email")?{user:{id:"demo-you",email:ls.get("yp4t-demo-email")}}:null); },
     async sendCode(email){ ls.set("yp4t-demo-pending", email); },
     async verifyCode(email, code){ if(!/^\d{6,10}$/.test(code)) throw new Error("Enter the code from your email."); ls.set("yp4t-demo-email", email); },
-    async signOut(){ ["yp4t-demo-email","yp4t-demo-me","yp4t-demo-profile"].forEach(k=>ls.del(k)); db.members=db.members.filter(m=>m.id!=="demo-you"); db.me=null; },
+    async google(){ ls.set("yp4t-demo-email","you@gmail.com"); },
+    async sendPhoneCode(phone){ ls.set("yp4t-demo-pending", phone); },
+    async verifyPhone(phone, code){ if(!/^\d{6,10}$/.test(code)) throw new Error("Enter the code from your text message."); ls.set("yp4t-demo-email", phone); ls.set("yp4t-demo-phone", phone); },
+    async signOut(){ ["yp4t-demo-email","yp4t-demo-me","yp4t-demo-profile","yp4t-demo-phone"].forEach(k=>ls.del(k)); db.members=db.members.filter(m=>m.id!=="demo-you"); db.me=null; },
     async getMyProfile(){ const m=me(); return m ? {...m, phone:m._phone||"", email:ls.get("yp4t-demo-email")} : null; },
     async saveProfile(p){ let m=me(); const isNew=!m;
       if(isNew){ m={ id:"demo-you", status:"approved", role:"admin", ref_code:"demo"+Math.floor(Math.random()*9999), referred_by:null, created_at:new Date().toISOString() }; db.members.push(m); db.me=m.id; }
       Object.assign(m,{full_name:p.full_name,profession:p.profession,state:p.state,lga:p.lga,ward:titleCase(p.ward),photo_url:p.photo_url??m.photo_url,has_pvc:p.has_pvc,canvass:p.canvass,listed:p.listed,_phone:p.phone});
       ls.set("yp4t-demo-me", m.id); ls.set("yp4t-demo-profile", JSON.stringify({...m, photo_url: (m.photo_url||"").startsWith("data:") && m.photo_url.length>400000 ? null : m.photo_url}));
+      if(isNew){ for(let i=0;i<7;i++){ const r=mk(7000+i, Date.now()-i*9e6-6e5); r.referred_by=m.id; r.state=m.state; r.lga=m.lga; if(i===2) r.status="pending"; db.members.push(r); }
+        db.members.filter(x=>x.referred_by===m.id).slice(0,3).forEach((r,k)=>{ for(let j=0;j<k+1;j++){ const s=mk(7100+k*10+j, Date.now()-j*4e6); s.referred_by=r.id; db.members.push(s); } }); }
       if(isNew) liveCb&&liveCb({type:"join",member:m}); return m; },
     async uploadPhoto(blob){ return await new Promise(r=>{ const fr=new FileReader(); fr.onload=()=>r(fr.result); fr.readAsDataURL(blob); }); },
     async publicTotal(){ return db.members.filter(m=>m.status==="approved").length; },
@@ -275,6 +281,12 @@ function makeDemo(){
     async topRecruiters(){ const c=new Map(); db.members.forEach(m=>{ if(m.referred_by&&m.status==="approved") c.set(m.referred_by,(c.get(m.referred_by)||0)+1); });
       return [...c].sort((a,b)=>b[1]-a[1]).slice(0,20).map(([id,n])=>{ const r=db.members.find(m=>m.id===id); return {member_id:id,first_name:first(r.full_name),state:r.state,lga:r.lga,recruits:n}; }); },
     async myRecruits(){ return db.members.filter(m=>m.referred_by===db.me).length; },
+    async myTeam(){ return db.members.filter(m=>m.referred_by===db.me&&m.status!=="rejected").map(m=>({...m,recruits:db.members.filter(x=>x.referred_by===m.id&&x.status==="approved").length})).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)); },
+    async supporters(){ return (db.supporters||[]).filter(x=>x.added_by===db.me).slice().reverse(); },
+    async addSupporter(p){ db.supporters=db.supporters||[]; db.supporters.push({...p,id:db.nextId++,added_by:db.me,full_name:titleCase(p.full_name),ward:titleCase(p.ward),created_at:new Date().toISOString()}); },
+    async deleteSupporter(id){ db.supporters=(db.supporters||[]).filter(x=>x.id!==id); },
+    async supporterStats(){ const m=new Map(); for(const x of db.supporters||[]){ const k=x.state+"|"+x.lga+"|"+x.ward; const r=m.get(k)||{state:x.state,lga:x.lga,ward:x.ward,supporters:0,pvc:0}; r.supporters++; if(x.has_pvc) r.pvc++; m.set(k,r);} return [...m.values()]; },
+    async inviter(code){ const m=db.members.find(x=>x.ref_code===code&&x.status==="approved"); return m?{display_name:shortName(m.full_name),profession:m.profession,state:m.state,lga:m.lga,photo_url:m.photo_url,role:m.role}:null; },
     async leaders(){ return db.members.filter(m=>["national","state"].includes(m.role)).map(m=>({id:m.id,full_name:m.full_name,role:m.role,state:m.state,photo_url:m.photo_url})); },
     async areaCoordinators(state){ return db.members.filter(m=>m.status==="approved"&&m.role!=="member"&&m.role!=="admin"&&(m.role==="national"||m.state===state)); },
     async directory({state,lga,q}){ const ql=(q||"").toLowerCase(); return db.members.filter(m=>m.status==="approved"&&m.listed&&m.id!==db.me&&(!state||m.state===state)&&(!lga||m.lga===lga)&&(!ql||(m.full_name+" "+m.profession+" "+m.lga).toLowerCase().includes(ql))).slice(0,60); },
@@ -292,9 +304,11 @@ function makeDemo(){
     async pending(){ const u=me(); return db.members.filter(m=>m.status==="pending"&&manages(u,m)).map(m=>({...m,member_private:{phone:"080"+String(m.id.length*1234567).slice(0,8),email:null}})); },
     async setStatus(id,status){ const m=db.members.find(x=>x.id===id); if(m) m.status=status; },
     async setRole(id,role){ const m=db.members.find(x=>x.id===id); if(m) m.role=role; },
+    async adminTeam(){ return db.members.filter(m=>ADMIN_ROLES.includes(m.role)&&m.status==="approved"); },
+    async adminFind(q){ q=q.toLowerCase(); const c=new Map(); db.members.forEach(m=>{ if(m.referred_by) c.set(m.referred_by,(c.get(m.referred_by)||0)+1); }); return db.members.filter(m=>m.status==="approved"&&(m.full_name+" "+m.profession).toLowerCase().includes(q)).slice(0,30).map(m=>({...m,recruits:c.get(m.id)||0,outings:0,messages:0})); },
     async candidates(state){ const c=new Map(); db.members.forEach(m=>{ if(m.referred_by) c.set(m.referred_by,(c.get(m.referred_by)||0)+1); });
-      return db.members.filter(m=>m.status==="approved"&&m.state===state&&m.id!==db.me).map(m=>{ const recruits=c.get(m.id)||0; const outings=db.rsvps.filter(r=>r.member_id===m.id).length; const messages=db.messages.filter(x=>x.sender===m.id).length;
-        return {...m,recruits,outings,messages,score:recruits*5+(m.canvass?10:0)+outings*4+Math.min(messages,30)}; }).sort((a,b)=>b.score-a.score).slice(0,40); }
+      return db.members.filter(m=>m.status==="approved"&&(!state||m.state===state)&&m.id!==db.me).map(m=>{ const recruits=c.get(m.id)||0; const outings=db.rsvps.filter(r=>r.member_id===m.id).length; const messages=db.messages.filter(x=>x.sender===m.id).length;
+        return {...m,recruits,outings,messages,score:recruits*5+(m.canvass?10:0)+outings*4+Math.min(messages,30)}; }).sort((a,b)=>b.score-a.score).slice(0,state?40:60); }
   };
 }
 
@@ -315,6 +329,9 @@ function makeLive(){
     async session(){ const {data}=await sb.auth.getSession(); uid=data.session?.user?.id||null; return data.session; },
     async sendCode(email){ must(await sb.auth.signInWithOtp({email, options:{shouldCreateUser:true, emailRedirectTo:location.origin+location.pathname}})); },
     async verifyCode(email, token){ const d=must(await sb.auth.verifyOtp({email, token, type:"email"})); uid=d.user?.id; },
+    async sendPhoneCode(phone){ must(await sb.auth.signInWithOtp({phone, options:{shouldCreateUser:true, channel:"sms"}})); },
+    async verifyPhone(phone, token){ const d=must(await sb.auth.verifyOtp({phone, token, type:"sms"})); uid=d.user?.id; },
+    async google(){ must(await sb.auth.signInWithOAuth({provider:"google", options:{redirectTo:location.origin+location.pathname}})); },
     async signOut(){ await sb.auth.signOut(); uid=null; },
     async getMyProfile(){ if(!uid) return null; const m=must(await sb.from("members").select("*").eq("id",uid).maybeSingle()); if(!m) return null;
       const p=must(await sb.from("member_private").select("phone,email").eq("id",uid).maybeSingle()); return {...m, phone:p?.phone||"", email:p?.email||""}; },
@@ -333,7 +350,13 @@ function makeLive(){
     async recentJoins(){ return must(await sb.rpc("recent_joins")) || []; },
     onLive(cb){ liveCb=cb; },
     async topRecruiters(){ return must(await sb.rpc("top_recruiters")) || []; },
-    async myRecruits(){ const {count,error}=await sb.from("members").select("id",{count:"exact",head:true}).eq("referred_by",uid); if(error) return 0; return count||0; },
+    async myTeam(){ return must(await sb.rpc("my_team")) || []; },
+    async myRecruits(){ try{ return (await this.myTeam()).length; }catch(e){ const {count}=await sb.from("members").select("id",{count:"exact",head:true}).eq("referred_by",uid); return count||0; } },
+    async supporters(){ return must(await sb.from("supporters").select("*").eq("added_by",uid).order("created_at",{ascending:false}).limit(1000)) || []; },
+    async addSupporter(p){ must(await sb.from("supporters").insert(p)); },
+    async deleteSupporter(id){ must(await sb.from("supporters").delete().eq("id",id)); },
+    async supporterStats(){ try{ return must(await sb.rpc("supporter_stats")) || []; }catch(e){ return []; } },
+    async inviter(code){ const r=must(await sb.rpc("inviter_card",{p_code:code})); return (r&&r[0])||null; },
     async leaders(){ return must(await sb.rpc("public_leaders")) || []; },
     async areaCoordinators(state){ return must(await sb.rpc("area_coordinators",{p_state:state})) || []; },
     async directory({state,lga,q}){ let qy=sb.from("members").select("id,full_name,profession,state,lga,ward,photo_url,role").eq("status","approved").eq("listed",true).neq("id",uid).order("created_at",{ascending:false}).limit(60);
@@ -350,17 +373,19 @@ function makeLive(){
     async projects(state){ return must(await sb.from("projects").select("*").eq("state",state).order("created_at",{ascending:false})) || []; },
     async addProject(p){ must(await sb.from("projects").insert(p)); },
     async deleteProject(id){ must(await sb.from("projects").delete().eq("id",id)); },
-    async pending(){ return must(await sb.from("members").select("*, member_private(phone,email)").eq("status","pending").order("created_at").limit(200)) || []; },
+    async pending(){ return must(await sb.from("members").select("*, member_private(phone,email)").eq("status","pending").order("created_at").limit(1000)) || []; },
     async setStatus(id,status){ must(await sb.from("members").update({status}).eq("id",id)); },
     async setRole(id,role){ must(await sb.from("members").update({role}).eq("id",id)); },
+    async adminTeam(){ return must(await sb.rpc("admin_team")) || []; },
+    async adminFind(q){ return must(await sb.rpc("admin_find",{q})) || []; },
     async candidates(state){ return must(await sb.rpc("coordinator_candidates",{p_state:state})) || []; }
   };
 }
 
 /* ═════════════════════════ App state ═════════════════════════ */
 const api = LIVE ? makeLive() : makeDemo();
-const S = { me:null, session:null, tab:"map", stats:[], total:0, selState:null, selLga:null, feed:[], unsub:null, chatRoom:null, dmWith:null, photoBlob:null, photoUrl:null };
-const TABS = [["map","Map"],["card","My Card"],["ward","My Ward"],["people","People"],["ranks","Rankings"],["projects","Projects"],["admin","Admin"]];
+const S = { me:null, session:null, tab:"map", stats:[], sstats:[], total:0, selState:null, selLga:null, feed:[], unsub:null, chatRoom:null, dmWith:null, photoBlob:null, photoUrl:null };
+const TABS = [["map","Map"],["card","My Card"],["team","My Team"],["ward","My Ward"],["people","People"],["ranks","Rankings"],["projects","Projects"],["admin","Admin"]];
 
 (function captureRef(){ const r=new URLSearchParams(location.search).get("ref"); if(r && /^[a-z0-9]{4,12}$/i.test(r)) ls.set("yp4t-ref", r); })();
 
@@ -383,6 +408,7 @@ async function refreshAuth(){
 }
 async function loadStats(){
   try{ S.stats = await api.stats(); S.total = S.stats.reduce((a,r)=>a+Number(r.members),0); }catch(e){ console.warn(e); }
+  try{ S.sstats = await api.supporterStats(); }catch(e){ S.sstats=[]; }
   if(S.tab==="map" && S.me?.status==="approved") renderMapData();
 }
 function onLive(ev){
@@ -408,7 +434,7 @@ function renderTop(){
 function go(tab){
   if(S.unsub){ S.unsub(); S.unsub=null; }
   S.tab=tab; renderTop(); window.scrollTo(0,0);
-  ({map:renderMap,card:renderCard,ward:renderWard,people:renderPeople,ranks:renderRanks,projects:renderProjects,admin:renderAdmin}[tab]||renderMap)();
+  ({map:renderMap,card:renderCard,team:renderTeam,ward:renderWard,people:renderPeople,ranks:renderRanks,projects:renderProjects,admin:renderAdmin}[tab]||renderMap)();
 }
 
 /* ═════════════════════════ Landing + sign in ═════════════════════════ */
@@ -417,7 +443,7 @@ async function renderLanding(){
   $("#view").innerHTML = `
   <section class="hero">
     <div class="stack" style="gap:18px">
-      ${ref?`<span class="pill g" style="align-self:flex-start">You were invited by a YP4T member</span>`:""}
+      ${ref?`<div id="inviterBox"><span class="pill g" style="align-self:flex-start">You were invited by a YP4T member</span></div>`:""}
       <h1>Young professionals.<br><span class="g">One ward</span> at a time.</h1>
       <p style="font-size:18px;max-width:52ch">Join the Young Professionals for Tinubu network. Get your membership card, meet members in your ward, and join the door-to-door campaign before the presidential election on <b>16 January 2027</b>.</p>
       <div class="sunrise" style="max-width:420px"></div>
@@ -435,41 +461,62 @@ async function renderLanding(){
   </section>`;
   renderAuthBox("email");
   updateLandingCount();
+  if(ref){ try{ const inv=await api.inviter(ref); const bx=$("#inviterBox");
+    if(inv&&bx) bx.innerHTML=`<div class="leader" style="display:inline-flex"><span>${avatar(inv.photo_url,inv.display_name,"lg")}</span><div><div class="eyebrow">You were invited by</div><b style="font-size:19px">${esc(inv.display_name)}</b><div class="small muted">${esc(inv.profession)} · ${esc(inv.lga)}, ${esc(inv.state)}</div><div class="small" style="color:var(--green);font-weight:700;margin-top:2px">Join their team. You'll be approved straight away.</div></div></div>`; }catch(e){} }
   try{ const L=await api.leaders(); if(L.length) $("#leadersBox").innerHTML=`<div class="eyebrow" style="margin:10px 0 8px">Our coordinators</div><div class="leaders">${L.map(l=>`<div class="leader">${avatar(l.photo_url,l.full_name,"lg")}<div><b>${esc(l.full_name)}</b><div class="small muted">${ROLE_LABEL[l.role]}${l.role==="state"?" · "+esc(l.state):""}</div></div></div>`).join("")}</div>`; }catch(e){}
 }
 async function updateLandingCount(){ const el=$("#landCount"); if(!el) return; try{ el.textContent=fmt(await api.publicTotal()); }catch(e){ el.textContent="—"; } }
-function renderAuthBox(step, email="", mode){
+function ngPhone(v){ let d=String(v||"").replace(/\D/g,""); if(d.startsWith("234")) d=d.slice(3); if(d.startsWith("0")) d=d.slice(1); return /^[789][01]\d{8}$/.test(d) ? "+234"+d : null; }
+function prettyPhone(p){ const d=String(p||"").replace(/\D/g,""); return d.startsWith("234") ? "0"+d.slice(3) : p; }
+const PHONE_ON = () => !LIVE || CFG.PHONE_SIGNIN;
+function renderAuthBox(step, id="", mode, method){
   const box=$("#authBox"); if(!box) return;
   mode = mode || renderAuthBox.mode || "join"; renderAuthBox.mode = mode;
-  const signin = mode==="signin";
+  method = method || renderAuthBox.method || "email"; if(method==="phone" && !PHONE_ON()) method="email"; renderAuthBox.method = method;
+  const signin = mode==="signin", byPhone = method==="phone";
+  const rateMsg = m => /rate|seconds|too many/i.test(m) ? "Please wait a minute before asking for another code." : /nigerian|234/i.test(m) ? "Enter a Nigerian mobile number, e.g. 0803 123 4567." : m;
   if(step==="email"){
     box.innerHTML = `<div class="seg" role="group" aria-label="Join or sign in"><button type="button" id="mJoin" aria-pressed="${!signin}">New member</button><button type="button" id="mIn" aria-pressed="${signin}">Sign in</button></div>
-    <h2>${signin?"Welcome back":"Join YP4T"}</h2><p class="muted">${signin?"Enter the email you joined with. We'll send you a sign-in code. No password needed.":"Enter your email. We'll send you a sign-in code. No password needed."}</p>
-    <form id="emailForm" class="stack"><label for="email">Email address<input type="email" id="email" required autocomplete="email" placeholder="you@example.com" value="${esc(email)}"></label>
-    <button class="btn" type="submit">${signin?"Send my sign-in code":"Send my code"}</button><div class="err" id="authErr"></div></form>
+    <h2>${signin?"Welcome back":"Join YP4T"}</h2>
+    <p class="muted">${byPhone ? (signin?"Enter the phone number you joined with. We'll text you a sign-in code.":"Enter your phone number. We'll text you a sign-in code. No password needed.") : (signin?"Enter the email you joined with. We'll send you a sign-in code. No password needed.":"Enter your email. We'll send you a sign-in code. No password needed.")}</p>
+    <form id="emailForm" class="stack">${byPhone
+      ? `<label for="phoneIn">Phone number<input type="tel" id="phoneIn" required autocomplete="tel" inputmode="tel" placeholder="0803 123 4567" value="${esc(id?prettyPhone(id):"")}"></label>`
+      : `<label for="email">Email address<input type="email" id="email" required autocomplete="email" placeholder="you@example.com" value="${esc(id)}"></label>`}
+    <button class="btn" type="submit">${byPhone?"Text me a code":(signin?"Send my sign-in code":"Send my code")}</button><div class="err" id="authErr"></div></form>
+    ${PHONE_ON() ? `<button class="btn ghost sm" type="button" id="swMethod" style="align-self:flex-start">${byPhone?"Use email instead":"Use phone number instead"}</button>` : ""}
+    ${(!LIVE || CFG.GOOGLE_SIGNIN) ? `<div class="row" style="gap:10px;color:var(--muted);font-size:13px;font-weight:600"><span style="flex:1;height:1px;background:var(--line)"></span>or<span style="flex:1;height:1px;background:var(--line)"></span></div>
+    <button class="btn ghost" type="button" id="gBtn" style="width:100%"><svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.7 6c4.5-4.2 6.9-10.3 6.9-17.7z"/><path fill="#FBBC05" d="M10.6 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.1C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.7-6c-2.2 1.5-5 2.3-8.2 2.3-6.2 0-11.5-4.1-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>Continue with Google</button>` : ""}
     <p class="small muted">${signin?"Not a member yet? Tap <b>New member</b> above.":"Already a member? Tap <b>Sign in</b> above."}</p>`;
-    $("#mJoin").onclick=()=>renderAuthBox("email",$("#email").value,"join");
-    $("#mIn").onclick=()=>renderAuthBox("email",$("#email").value,"signin");
-    $("#emailForm").onsubmit = async e=>{ e.preventDefault(); const em=$("#email").value.trim(); const b=e.submitter; b.disabled=true;
-      try{ await api.sendCode(em); renderAuthBox("code", em); }catch(err){ $("#authErr").textContent=/rate|seconds|too many/i.test(err.message)?"Please wait a minute before asking for another code.":err.message; b.disabled=false; } };
+    $("#gBtn")?.addEventListener("click", async e=>{ const b=e.currentTarget; b.disabled=true; try{ await api.google(); if(!LIVE) await refreshAuth(); }catch(err){ $("#authErr").textContent=/not enabled|provider/i.test(err.message)?"Google sign-in isn't switched on yet. Use your email for now.":err.message; b.disabled=false; } });
+    const cur = () => byPhone ? $("#phoneIn").value : $("#email").value;
+    $("#mJoin").onclick=()=>renderAuthBox("email",cur(),"join");
+    $("#mIn").onclick=()=>renderAuthBox("email",cur(),"signin");
+    $("#swMethod")?.addEventListener("click",()=>renderAuthBox("email","",mode,byPhone?"email":"phone"));
+    $("#emailForm").onsubmit = async e=>{ e.preventDefault(); const b=e.submitter; $("#authErr").textContent="";
+      let v;
+      if(byPhone){ v=ngPhone($("#phoneIn").value); if(!v){ $("#authErr").textContent="Enter a Nigerian mobile number, e.g. 0803 123 4567."; return; } }
+      else v=$("#email").value.trim();
+      b.disabled=true;
+      try{ if(byPhone) await api.sendPhoneCode(v); else await api.sendCode(v); renderAuthBox("code", v); }catch(err){ $("#authErr").textContent=rateMsg(err.message); b.disabled=false; } };
   } else {
-    box.innerHTML = `<h2>Check your email</h2><p class="muted">We sent an email to <b>${esc(email)}</b>. Tap the <b>sign-in link</b> in it, or type the code here. It can take a minute; check your spam folder too.</p>
-    ${LIVE?"":`<p class="pill w">Demo: type any 6 to 8 digits</p>`}
-    <form id="codeForm" class="stack"><label for="code">Code from your email<input type="text" id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="10" required placeholder="12345678" style="font-family:var(--mono);font-size:22px;letter-spacing:.2em"></label>
+    box.innerHTML = byPhone
+      ? `<h2>Check your messages</h2><p class="muted">We sent a text message to <b>${esc(prettyPhone(id))}</b>. Type the code here. It can take a minute to arrive.</p>`
+      : `<h2>Check your email</h2><p class="muted">We sent an email to <b>${esc(id)}</b>. Tap the <b>sign-in link</b> in it, or type the code here. It can take a minute; check your spam folder too.</p>`;
+    box.innerHTML += `${LIVE?"":`<p class="pill w">Demo: type any 6 to 8 digits</p>`}
+    <form id="codeForm" class="stack"><label for="code">Code from your ${byPhone?"text message":"email"}<input type="text" id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="10" required placeholder="123456" style="font-family:var(--mono);font-size:22px;letter-spacing:.2em"></label>
     <button class="btn" type="submit">Sign in</button><div class="err" id="authErr"></div></form>
-    <div class="row"><button class="btn ghost sm" id="backBtn">Use a different email</button><button class="btn ghost sm" id="resendBtn">Send a new code</button></div>`;
-    $("#backBtn").onclick=()=>renderAuthBox("email", email);
-    $("#resendBtn").onclick=async e=>{ const b=e.currentTarget; b.disabled=true; try{ await api.sendCode(email); toast("New code sent"); }catch(err){ $("#authErr").textContent=/rate|seconds|too many/i.test(err.message)?"Please wait a minute before asking for another code.":err.message; } setTimeout(()=>b.disabled=false, 30000); };
+    <div class="row"><button class="btn ghost sm" id="backBtn">${byPhone?"Use a different number":"Use a different email"}</button><button class="btn ghost sm" id="resendBtn">Send a new code</button></div>`;
+    $("#backBtn").onclick=()=>renderAuthBox("email", id);
+    $("#resendBtn").onclick=async e=>{ const b=e.currentTarget; b.disabled=true; try{ if(byPhone) await api.sendPhoneCode(id); else await api.sendCode(id); toast("New code sent"); }catch(err){ $("#authErr").textContent=rateMsg(err.message); } setTimeout(()=>b.disabled=false, 30000); };
     $("#codeForm").onsubmit = async e=>{ e.preventDefault(); const b=e.submitter; b.disabled=true; const code=$("#code").value.replace(/\D/g,"");
-      try{ await api.verifyCode(email, code); await refreshAuth(); }catch(err){ $("#authErr").textContent=/expired|invalid|token/i.test(err.message)?"That code is wrong or has expired. Tap Send a new code.":err.message; b.disabled=false; } };
+      try{ if(byPhone) await api.verifyPhone(id, code); else await api.verifyCode(id, code); await refreshAuth(); }catch(err){ $("#authErr").textContent=/expired|invalid|token/i.test(err.message)?"That code is wrong or has expired. Tap Send a new code.":err.message; b.disabled=false; } };
     $("#code").focus();
   }
 }
-
 /* ═════════════════════════ Join / edit profile ═════════════════════════ */
 function lgaOptions(state, sel){ return `<option value="">Choose LGA</option>` + (window.NG_LGAS[state]||[]).map(l=>`<option ${l===sel?"selected":""}>${esc(l)}</option>`).join(""); }
 function renderJoin(edit=false){
-  const m = S.me || {}; const email = S.session?.user?.email || "";
+  const m = S.me || {}; const email = S.session?.user?.email || ""; const sessPhone = S.session?.user?.phone ? prettyPhone(S.session.user.phone) : (ls.get("yp4t-demo-phone") ? prettyPhone(ls.get("yp4t-demo-phone")) : "");
   $("#view").innerHTML = `
   <div class="stack" style="max-width:640px;margin:0 auto">
     <div><div class="eyebrow">${edit?"Your details":"Step 2 of 2"}</div><h2>${edit?"Edit my profile":"Tell us about you"}</h2></div>
@@ -481,7 +528,7 @@ function renderJoin(edit=false){
       <label for="fullName">Full name<input type="text" id="fullName" required maxlength="80" value="${esc(m.full_name||"")}" placeholder="Oluwaseun Adeyemi"></label>
       <label for="profession">Profession<input type="text" id="profession" required maxlength="60" list="profList" value="${esc(m.profession||"")}" placeholder="e.g. Nurse, Engineer, Lawyer"></label>
       <datalist id="profList">${PROFESSIONS.map(p=>`<option value="${esc(p)}">`).join("")}</datalist>
-      <label for="phone">Phone number <span class="small muted" style="font-weight:400">only your coordinators can see this</span><input type="tel" id="phone" required value="${esc(m.phone||"")}" placeholder="0803 000 0000"></label>
+      <label for="phone">Phone number <span class="small muted" style="font-weight:400">only your coordinators can see this</span><input type="tel" id="phone" required value="${esc(m.phone||sessPhone||"")}" placeholder="0803 000 0000"></label>
       <div class="grid2" style="gap:12px">
         <label for="state">State<select id="state" required><option value="">Choose state</option>${STATES.map(s=>`<option ${s===m.state?"selected":""}>${s}</option>`).join("")}</select></label>
         <label for="lga">Local Government Area<select id="lga" required>${lgaOptions(m.state,m.lga)}</select></label>
@@ -563,7 +610,7 @@ function renderMapData(flash){
   const byState=agg(S.stats, r=>r.state); const max=Math.max(1,...[...byState.values()].map(a=>a.members));
   const tot=agg(S.stats,()=>1).get(1)||{members:0,pvc:0,canvass:0};
   S.total = tot.members; $("#total").textContent=fmt(S.total);
-  $("#natStats").innerHTML = `<div class="stat"><b>${fmt(tot.pvc)}</b><span class="small muted">have PVCs</span></div><div class="stat"><b>${fmt(tot.canvass)}</b><span class="small muted">door-to-door</span></div><div class="stat"><b>${byState.size}</b><span class="small muted">states active</span></div>`;
+  $("#natStats").innerHTML = `<div class="stat"><b>${fmt(tot.pvc)}</b><span class="small muted">have PVCs</span></div><div class="stat"><b>${fmt(tot.canvass)}</b><span class="small muted">door-to-door</span></div><div class="stat"><b>${fmt((S.sstats||[]).reduce((a,r)=>a+Number(r.supporters),0))}</b><span class="small muted">offline supporters</span></div>`;
   tiles.innerHTML = Object.entries(TILES).map(([s,[c,x,y]])=>{ const n=byState.get(s)?.members||0; const p=n?Math.round(18+82*Math.sqrt(n/max)):0;
     const dark = p>55; return `<button class="tile ${s===S.selState?"sel":""} ${s===flash?"pulse":""}" style="grid-column:${x+1};grid-row:${y+1};background:color-mix(in oklab,var(--green) ${p}%,var(--tile0));color:${dark?"#fff":"var(--ink)"}" data-s="${esc(s)}" aria-label="${esc(s)}: ${n} members"><b>${c}</b><span>${fmt(n)}</span></button>`; }).join("");
   tiles.querySelectorAll(".tile").forEach(t=>t.onclick=()=>{ S.selState=t.dataset.s; S.selLga=null; renderMapData(); });
@@ -587,6 +634,7 @@ async function renderArea(){
   box.innerHTML = `<div class="row" style="justify-content:space-between"><h3>${esc(s)}</h3>${back}</div>
     <div id="coordBox"></div>
     <div class="stats3"><div class="stat"><b>${fmt(tot.members)}</b><span class="small muted">members</span></div><div class="stat"><b>${fmt(tot.pvc)}</b><span class="small muted">have PVCs</span></div><div class="stat"><b>${fmt(tot.canvass)}</b><span class="small muted">door-to-door</span></div></div>
+    ${(()=>{ const sp=(S.sstats||[]).filter(r=>r.state===s); const n=sp.reduce((a,r)=>a+Number(r.supporters),0), pv=sp.reduce((a,r)=>a+Number(r.pvc),0); return n?`<p class="small muted">+ <b>${fmt(n)}</b> offline supporters added by members (${fmt(pv)} with PVC)</p>`:""; })()}
     <div class="eyebrow">${title}</div><div class="bars">${list}</div>`;
   box.querySelectorAll("button.bar").forEach(b=>b.onclick=()=>{ S.selLga=b.dataset.l; renderArea(); });
   $("#backLga")?.addEventListener("click",()=>{ S.selLga=null; renderArea(); });
@@ -651,12 +699,13 @@ async function renderCard(){
         <h3>Your invite link</h3>
         <p class="small muted">People who join through your link are approved straight away and count towards your ranking.</p>
         <div class="row"><input type="text" id="inv" readonly value="${esc(inviteLink(m))}" style="flex:1;min-width:0;font-family:var(--mono);font-size:13px"><button class="btn sm" id="copyInv">Copy</button></div>
-        <div class="row"><span class="pill g" id="recruits">… people joined through you</span></div>
+        <div class="row"><span class="pill g" id="recruits">… people joined through you</span><button class="btn ghost sm" type="button" id="seeTeam">See my team</button></div>
         <a class="btn ghost sm" style="align-self:flex-start" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent("I just joined Young Professionals for Tinubu (YP4T). Get your membership card and join our ward team: "+inviteLink(m))}">Send on WhatsApp</a>
       </div>
     </div></div>`;
   $("#editP").onclick=()=>renderJoin(true);
   $("#copyInv").onclick=()=>copy(inviteLink(m));
+  $("#seeTeam").onclick=()=>go("team");
   api.myRecruits().then(n=>{ const r=$("#recruits"); if(r) r.textContent=`${fmt(n)} ${n===1?"person":"people"} joined through you`; });
   let canvas;
   try{ canvas=await drawCard(m); $("#cardImg").src=canvas.toDataURL("image/png"); }catch(e){ toast("The card could not be drawn. Try another photo."); return; }
@@ -667,6 +716,75 @@ async function renderCard(){
 }
 
 /* ═════════════════════════ MY WARD ═════════════════════════ */
+/* ═════════════════════════ MY TEAM ═════════════════════════ */
+async function renderTeam(){
+  const m=S.me, link=inviteLink(m);
+  const wa="https://wa.me/?text="+encodeURIComponent(`I'm a Young Professional for Tinubu. Join my YP4T team: get your membership card and meet members in your ward. Sign up here (you'll be approved straight away): ${link}`);
+  $("#view").innerHTML = `<div class="stack" style="gap:20px">
+    <div><div class="eyebrow">${esc(memberNo(m))}</div><h2>${esc(first(m.full_name))}'s team</h2></div>
+    <div class="stats3" id="teamStats" style="max-width:640px"><div class="stat"><b>…</b><span class="small muted">joined through you</span></div><div class="stat"><b>…</b><span class="small muted">this week</span></div><div class="stat"><b>…</b><span class="small muted">recruited by your team</span></div></div>
+    <div class="grid2" style="align-items:start">
+      <div class="panel stack">
+        <h3>Your recruitment page</h3>
+        <p class="small muted">Anyone who opens your link sees that <b>you</b> invited them, signs up under your name and is approved straight away. They count towards your team.</p>
+        <div class="leader" style="align-self:flex-start;background:var(--soft)">${avatar(m.photo_url,m.full_name,"lg")}<div><div class="eyebrow">You were invited by</div><b style="font-size:18px">${esc(shortName(m.full_name))}</b><div class="small muted">${esc(m.profession)} · ${esc(m.lga)}, ${esc(m.state)}</div></div></div>
+        <p class="small muted" style="margin-top:-6px">This is what new people see at the top of your page.</p>
+        <div class="row"><input type="text" id="teamLink" readonly value="${esc(link)}" style="flex:1;min-width:0;font-family:var(--mono);font-size:13px" aria-label="Your recruitment link"><button class="btn sm" id="copyTeam">Copy</button></div>
+        <div class="row"><a class="btn sm" target="_blank" rel="noopener" href="${wa}">Share on WhatsApp</a><button class="btn ghost sm" id="toCard2">Get my card</button></div>
+      </div>
+      <div class="panel stack"><h3>How to grow your team</h3>
+        <ol style="margin:0;padding-left:22px;line-height:1.7">
+          <li>Post your <b>membership card</b> on your WhatsApp status with your link.</li>
+          <li>Send your link to colleagues, classmates and friends who are registered voters.</li>
+          <li>Ask each person who joins to share <b>their own</b> link. Their recruits count as your team's reach.</li>
+          <li>The most active recruiters are shown to coordinators when choosing ward leaders.</li>
+        </ol></div>
+    </div>
+    <div class="panel stack" id="offline">
+      <div class="row" style="justify-content:space-between"><div><h3>Add someone who isn't online</h3><p class="small muted" style="max-width:62ch">For supporters with a PVC who can't use the internet, such as parents, traders or artisans. You add them under your team, with their permission. Only you and your coordinators can see their details.</p></div><span class="pill g" id="supCount">…</span></div>
+      <form id="supForm" class="stack" style="gap:12px">
+        <div class="grid2" style="gap:12px">
+          <label for="sName">Full name<input type="text" id="sName" required maxlength="80" placeholder="Mama Ada Okeke"></label>
+          <label for="sPhone">Phone number <span class="small muted" style="font-weight:400">optional, for reminders on election day</span><input type="tel" id="sPhone" maxlength="20" placeholder="0803 000 0000"></label>
+          <label for="sState">State<select id="sState" required>${STATES.map(x=>`<option ${x===m.state?"selected":""}>${x}</option>`).join("")}</select></label>
+          <label for="sLga">Local Government Area<select id="sLga" required>${lgaOptions(m.state,m.lga)}</select></label>
+          <label for="sWard">Ward <span class="small muted" style="font-weight:400">the line under DELIM on their PVC</span><input type="text" id="sWard" required maxlength="60" value="${esc(m.ward)}"></label>
+          <label for="sPU">Polling unit <span class="small muted" style="font-weight:400">optional, where they vote</span><input type="text" id="sPU" maxlength="120" placeholder="e.g. PU 005, St Paul's School"></label>
+        </div>
+        <label class="check" for="sPvc"><input type="checkbox" id="sPvc" checked><span>They have collected their PVC. <span class="muted">Never write down or photograph anyone's PVC number.</span></span></label>
+        <label class="check" for="sConsent"><input type="checkbox" id="sConsent" required><span>They agreed to be added to YP4T, and I told them their details stay private and can be removed if they ask.</span></label>
+        <div class="row"><button class="btn" type="submit">Add supporter</button><div class="err" id="supErr"></div></div>
+      </form>
+      <div id="supList" class="people"></div>
+    </div>
+    <div><div class="row" style="justify-content:space-between;margin-bottom:10px"><h3>People who joined through you</h3><span class="small muted" id="teamCount"></span></div><div id="teamList" class="people"><div class="empty">Loading…</div></div></div>
+  </div>`;
+  $("#copyTeam").onclick=()=>copy(link); $("#toCard2").onclick=()=>go("card");
+  $("#sState").onchange=e=>$("#sLga").innerHTML=lgaOptions(e.target.value);
+  const loadSup=async()=>{ let L=[]; try{ L=await api.supporters(); }catch(e){ $("#supList").innerHTML=`<div class="empty">${esc(e.message)}</div>`; return; }
+    $("#supCount").textContent=`${fmt(L.length)} added by you`;
+    $("#supList").innerHTML = L.length ? L.map(x=>`<div class="person"><span class="avatar">${esc(initials(x.full_name))}</span><div><div class="nm">${esc(x.full_name)} ${x.has_pvc?'<span class="pill g">PVC</span>':'<span class="pill w">No PVC yet</span>'}</div><div class="sub">${esc(x.ward?x.ward+", ":"")}${esc(x.lga)}${x.polling_unit?" · "+esc(x.polling_unit):""}</div><div class="sub">${x.phone?esc(prettyPhone(x.phone))+" · ":""}added ${ago(x.created_at)}</div></div><button class="btn sm ghost" data-del="${x.id}" aria-label="Remove ${esc(x.full_name)}">Remove</button></div>`).join("")
+      : `<div class="empty">No offline supporters yet. Add people you meet during door-to-door who don't use the internet.</div>`;
+    $("#supList").querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{ if(b.dataset.sure!=="1"){ b.dataset.sure="1"; b.textContent="Tap again to remove"; return; } try{ await api.deleteSupporter(+b.dataset.del); toast("Removed"); loadSup(); }catch(e){ toast(e.message); } }); };
+  $("#supForm").onsubmit=async e=>{ e.preventDefault(); const b=e.submitter; $("#supErr").textContent="";
+    const ph=$("#sPhone").value.trim(); const phone=ph?ngPhone(ph):null;
+    if(ph && !phone){ $("#supErr").textContent="Enter a Nigerian mobile number, or leave it empty."; return; }
+    b.disabled=true;
+    try{ await api.addSupporter({ full_name:$("#sName").value.trim(), phone, state:$("#sState").value, lga:$("#sLga").value, ward:$("#sWard").value.trim(), polling_unit:$("#sPU").value.trim()||null, has_pvc:$("#sPvc").checked, consent:$("#sConsent").checked });
+      $("#sName").value=""; $("#sPhone").value=""; $("#sPU").value=""; $("#sConsent").checked=false; $("#sPvc").checked=true; toast("Supporter added"); loadSup(); loadStats(); }
+    catch(err){ $("#supErr").textContent=err.message; }
+    b.disabled=false; };
+  loadSup();
+  let T=[]; try{ T=await api.myTeam(); }catch(e){ $("#teamList").innerHTML=`<div class="empty">${esc(e.message)}</div>`; return; }
+  const wk=Date.now()-7*86400e3, approved=T.filter(t=>t.status==="approved");
+  const second=T.reduce((a,t)=>a+Number(t.recruits||0),0);
+  $("#teamStats").innerHTML=`<div class="stat"><b>${fmt(T.length)}</b><span class="small muted">joined through you</span></div><div class="stat"><b>+${fmt(T.filter(t=>new Date(t.created_at)>wk).length)}</b><span class="small muted">this week</span></div><div class="stat"><b>${fmt(second)}</b><span class="small muted">recruited by your team</span></div>`;
+  $("#teamCount").textContent = T.length ? `${fmt(approved.length)} approved${T.length>approved.length?` · ${fmt(T.length-approved.length)} waiting`:""}` : "";
+  $("#teamList").innerHTML = T.length ? T.map(t=>`<div class="person">${avatar(t.photo_url,t.full_name)}<div><div class="nm">${esc(shortName(t.full_name))} ${t.status==="pending"?'<span class="pill w">Waiting</span>':""}</div><div class="sub">${esc(t.profession)} · ${esc(t.ward?t.ward+", ":"")}${esc(t.lga)}</div><div class="sub">Joined ${ago(t.created_at)}${Number(t.recruits)?` · <b style="color:var(--green)">+${fmt(t.recruits)} recruited</b>`:""}</div></div>${t.status==="approved"?`<button class="btn sm ghost" data-dm="${t.id}" data-n="${esc(t.full_name)}">Message</button>`:""}</div>`).join("")
+    : `<div class="empty">Nobody has joined through your link yet. Share it on WhatsApp to start your team.</div>`;
+  $("#teamList").querySelectorAll("[data-dm]").forEach(b=>b.onclick=()=>openDm(b.dataset.dm,b.dataset.n));
+}
+
 async function renderWard(){
   const m=S.me; const rows=S.stats.filter(r=>r.state===m.state&&r.lga===m.lga&&String(r.ward).toLowerCase()===m.ward.toLowerCase());
   const t=agg(rows,()=>1).get(1)||{members:0,pvc:0,canvass:0};
@@ -763,7 +881,7 @@ async function renderRanks(){
 
 /* ═════════════════════════ PROJECTS ═════════════════════════ */
 async function renderProjects(){
-  const st = S.projState || S.me.state; const canAdd = S.me.role==="admin"||S.me.role==="national"||(S.me.role==="state"&&S.me.state===st);
+  const st = S.projState || S.me.state; const canAdd = ADMIN_ROLES.includes(S.me.role)||(S.me.role==="state"&&S.me.state===st);
   $("#view").innerHTML = `<div class="stack" style="gap:18px">
     <div><div class="eyebrow">Renewed Hope in your state</div><h2>Projects and policies</h2></div>
     <p class="muted" style="max-width:65ch">Completed projects, student loans (NELFUND) and credit-scheme figures, state by state. Every entry links to an official or news source so members can share it with confidence.</p>
@@ -786,23 +904,35 @@ async function renderProjects(){
 /* ═════════════════════════ ADMIN ═════════════════════════ */
 async function renderAdmin(){
   const me=S.me; if(!isManager(me)) return go("map");
-  const canStates = me.role==="admin"||me.role==="national"; const st = S.adminState || me.state;
+  const canStates = ADMIN_ROLES.includes(me.role), isSuper = me.role==="admin"; const st = canStates ? (S.adminState ?? "") : me.state;
   $("#view").innerHTML = `<div class="stack" style="gap:20px">
     <div><div class="eyebrow">${ROLE_LABEL[me.role]}</div><h2>Coordinator desk</h2></div>
-    <div class="panel stack"><div class="row" style="justify-content:space-between"><h3>Waiting for approval</h3><span class="pill w" id="pendN">…</span></div>
+    ${canStates?`<div class="panel stack"><div><h3>Admin team</h3><p class="small muted">These people see everything: every state, approvals, phone numbers and offline supporters. ${isSuper?"Only you, the Super Admin, can add or remove them. Find the person below and set their role to <b>Admin / Secretary</b> or <b>National Coordinator</b>.":"Only the Super Admin can change this list."}</p></div><div id="adminTeam" class="people"></div></div>`:""}
+    <div class="panel stack"><div class="row" style="justify-content:space-between"><h3>Waiting for approval</h3><div class="row"><select id="pState" style="max-width:200px" aria-label="Filter waiting list by state"><option value="">All states</option></select><span class="pill w" id="pendN">…</span></div></div>
       <p class="small muted">People who join without an invite link land here. Check they're genuine before approving.</p><div id="pend"></div></div>
     <div class="panel stack"><div class="row" style="justify-content:space-between;align-items:flex-end"><div><h3>Appoint coordinators</h3><p class="small muted">Ranked by recruits, door-to-door sign-up, outings attended and chat activity.</p></div>
-      ${canStates?`<select id="aState" style="max-width:220px" aria-label="State">${STATES.map(s=>`<option ${s===st?"selected":""}>${s}</option>`).join("")}</select>`:`<span class="pill">${esc(me.state)}</span>`}</div>
+      ${canStates?`<select id="aState" style="max-width:220px" aria-label="State"><option value="" ${st===""?"selected":""}>All states</option>${STATES.map(s=>`<option ${s===st?"selected":""}>${s}</option>`).join("")}</select>`:`<span class="pill">${esc(me.state)}</span>`}</div>
+      ${canStates?`<label for="aFind" style="max-width:420px">Find any member by name<input type="text" id="aFind" placeholder="Type at least 2 letters" autocomplete="off"></label>`:""}
       <div id="cands" class="scroll"></div></div></div>`;
+  if(canStates){ api.adminTeam().then(T=>{ const b=$("#adminTeam"); if(b) b.innerHTML=T.map(t=>`<div class="person">${avatar(t.photo_url,t.full_name)}<div><div class="nm">${esc(t.full_name)}</div><div class="sub">${ROLE_LABEL[t.role]} · ${esc(t.state)}</div></div></div>`).join("")||`<div class="empty">Only you so far.</div>`; }).catch(e=>{ const b=$("#adminTeam"); if(b) b.innerHTML=`<div class="err">${esc(e.message)}. Run admin-team.sql in Supabase.</div>`; }); }
   if(canStates) $("#aState").onchange=e=>{ S.adminState=e.target.value; renderAdmin(); };
-  try{ const P=await api.pending(); $("#pendN").textContent=`${P.length} waiting`;
-    $("#pend").innerHTML = P.length? `<div class="scroll"><table><thead><tr><th>Name</th><th>Profession</th><th>Area</th><th>Phone</th><th></th></tr></thead><tbody>${P.map(p=>`<tr><td><b>${esc(p.full_name)}</b></td><td>${esc(p.profession)}</td><td class="small">${esc(p.ward)}, ${esc(p.lga)}, ${esc(p.state)}</td><td class="small num">${esc(p.member_private?.phone||"")}</td><td><div class="row" style="flex-wrap:nowrap"><button class="btn sm" data-ok="${p.id}">Approve</button><button class="btn ghost sm" data-no="${p.id}">Reject</button></div></td></tr>`).join("")}</tbody></table></div>` : `<div class="empty">Nobody is waiting. New sign-ups without an invite will appear here.</div>`;
+  try{ const ALL=await api.pending();
+    const byS=ALL.reduce((a,p)=>(a[p.state]=(a[p.state]||0)+1,a),{});
+    const ps=$("#pState"); ps.innerHTML=`<option value="">All states (${ALL.length})</option>`+Object.keys(byS).sort().map(k=>`<option value="${esc(k)}" ${S.pendState===k?"selected":""}>${esc(k)} (${byS[k]})</option>`).join("");
+    if(S.pendState && !byS[S.pendState]) S.pendState="";
+    ps.value=S.pendState||""; ps.onchange=()=>{ S.pendState=ps.value; renderAdmin(); };
+    const P=ALL.filter(p=>!S.pendState||p.state===S.pendState);
+    $("#pendN").textContent=`${P.length} waiting`;
+    $("#pend").innerHTML = P.length? `<div class="row" style="margin-bottom:8px"><button class="btn sm" id="okAll">Approve all ${P.length} shown</button><span class="small muted">Check names first. Anyone suspicious, reject them one by one.</span></div><div class="scroll"><table><thead><tr><th>Name</th><th>Profession</th><th>Area</th><th>Phone</th><th>Joined</th><th></th></tr></thead><tbody>${P.map(p=>`<tr><td><b>${esc(p.full_name)}</b></td><td>${esc(p.profession)}</td><td class="small">${esc(p.ward)}, ${esc(p.lga)}, <b>${esc(p.state)}</b></td><td class="small num">${esc(p.member_private?.phone||"")}</td><td class="small muted">${ago(p.created_at)}</td><td><div class="row" style="flex-wrap:nowrap"><button class="btn sm" data-ok="${p.id}">Approve</button><button class="btn ghost sm" data-no="${p.id}">Reject</button></div></td></tr>`).join("")}</tbody></table></div>` : `<div class="empty">Nobody is waiting. New sign-ups without an invite will appear here.</div>`;
     $("#pend").querySelectorAll("[data-ok]").forEach(b=>b.onclick=async()=>{ await api.setStatus(b.dataset.ok,"approved"); toast("Approved"); renderAdmin(); });
-    $("#pend").querySelectorAll("[data-no]").forEach(b=>b.onclick=async()=>{ await api.setStatus(b.dataset.no,"rejected"); toast("Rejected"); renderAdmin(); }); }catch(e){ $("#pend").innerHTML=`<div class="err">${esc(e.message)}</div>`; }
-  const roles = canStates ? ["member","ward","lga","state","national"] : ["member","ward","lga"];
-  try{ const C=await api.candidates(canStates?st:me.state);
-    $("#cands").innerHTML = C.length? `<table><thead><tr><th>Member</th><th>Area</th><th class="n">Recruits</th><th class="n">Outings</th><th>Door-to-door</th><th>Role</th></tr></thead><tbody>${C.map(c=>`<tr><td><b>${esc(c.full_name)}</b><div class="small muted">${esc(c.profession||"")}</div></td><td class="small">${esc(c.ward)}, ${esc(c.lga)}</td><td class="n">${fmt(c.recruits)}</td><td class="n">${fmt(c.outings)}</td><td>${c.canvass?'<span class="pill g">Yes</span>':'<span class="small muted">No</span>'}</td><td><select data-role="${c.id}" aria-label="Role for ${esc(c.full_name)}" ${c.role==="admin"?"disabled":""}>${(c.role==="admin"?["admin"]:roles).map(r=>`<option value="${r}" ${r===c.role?"selected":""}>${ROLE_LABEL[r]}</option>`).join("")}</select></td></tr>`).join("")}</tbody></table>` : `<div class="empty">No approved members in this state yet.</div>`;
-    $("#cands").querySelectorAll("[data-role]").forEach(s=>s.onchange=async()=>{ try{ await api.setRole(s.dataset.role,s.value); toast(`Now ${ROLE_LABEL[s.value]}`); }catch(err){ toast(err.message); } }); }catch(e){ $("#cands").innerHTML=`<div class="err">${esc(e.message)}</div>`; }
+    $("#pend").querySelectorAll("[data-no]").forEach(b=>b.onclick=async()=>{ await api.setStatus(b.dataset.no,"rejected"); toast("Rejected"); renderAdmin(); });
+    $("#okAll")?.addEventListener("click",async e=>{ const b=e.currentTarget; if(b.dataset.sure!=="1"){ b.dataset.sure="1"; b.textContent=`Tap again to approve ${P.length}`; return; } b.disabled=true; let n=0; for(const p of P){ try{ await api.setStatus(p.id,"approved"); n++; b.textContent=`Approving… ${n}/${P.length}`; }catch(err){} } toast(`Approved ${n}`); renderAdmin(); }); }catch(e){ $("#pend").innerHTML=`<div class="err">${esc(e.message)}</div>`; }
+  const roles = isSuper ? ["member","ward","lga","state","national","secretary"] : canStates ? ["member","ward","lga","state"] : ["member","ward","lga"];
+  const drawCands = C => {
+    $("#cands").innerHTML = C.length? `<table><thead><tr><th>Member</th><th>Area</th><th class="n">Recruits</th><th class="n">Outings</th><th>Door-to-door</th><th>Role</th></tr></thead><tbody>${C.map(c=>`<tr><td><b>${esc(c.full_name)}</b><div class="small muted">${esc(c.profession||"")}</div></td><td class="small">${esc(c.ward)}, ${esc(c.lga)}${c.state&&c.state!==st?", "+esc(c.state):""}</td><td class="n">${fmt(c.recruits)}</td><td class="n">${fmt(c.outings)}</td><td>${c.canvass?'<span class="pill g">Yes</span>':'<span class="small muted">No</span>'}</td><td><select data-role="${c.id}" aria-label="Role for ${esc(c.full_name)}" ${(c.role==="admin"||(!isSuper&&ADMIN_ROLES.includes(c.role)))?"disabled":""}>${((c.role==="admin"||(!isSuper&&ADMIN_ROLES.includes(c.role)))?[c.role]:roles).map(r=>`<option value="${r}" ${r===c.role?"selected":""}>${ROLE_LABEL[r]}</option>`).join("")}</select></td></tr>`).join("")}</tbody></table>` : `<div class="empty">No approved members in this state yet.</div>`;
+    $("#cands").querySelectorAll("[data-role]").forEach(s=>s.onchange=async()=>{ try{ await api.setRole(s.dataset.role,s.value); toast(`Now ${ROLE_LABEL[s.value]}`); if(ADMIN_ROLES.includes(s.value)||canStates) renderAdmin(); }catch(err){ toast(err.message); } }); };
+  try{ drawCands(await api.candidates(st||null)); }catch(e){ $("#cands").innerHTML=`<div class="err">${esc(e.message)}</div>`; }
+  let ft; $("#aFind")?.addEventListener("input",e=>{ clearTimeout(ft); const q=e.target.value.trim(); ft=setTimeout(async()=>{ try{ drawCands(q.length>=2 ? await api.adminFind(q) : await api.candidates(st||null)); }catch(err){ $("#cands").innerHTML=`<div class="err">${esc(err.message)}</div>`; } },350); });
 }
 
 boot();
